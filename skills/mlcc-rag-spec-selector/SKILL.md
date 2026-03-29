@@ -9,7 +9,7 @@ Convert customer MLCC requirements into catalog-based candidates using `search_r
 
 Read the bundled references as needed:
 
-- Read `references/catalog-codebook.md` for code maps, family routing, chunk targets, and catalog guardrails.
+- Read `references/catalog-codebook.md` for code maps, family routing, chunk targets, size/thickness filtering rules, and catalog guardrails.
 - Read `references/search-playbook.md` for search order, query patterns, ranking, and response format.
 - Read `references/active-lineup-lookup.md` when the request is partial, ambiguous, or requires checking currently flowing products by `chip_prod_id`.
 - Read `references/prompt-examples.md` for Korean and mixed-language invocation examples.

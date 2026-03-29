@@ -246,6 +246,43 @@ Examples:
 - `%CL32_106_O____%`
 - `CL03A515MR3____`
 
+## Size and Thickness Filtering
+
+When the user provides L/W/T max constraints, filter candidates in two stages before searching example parts.
+
+### Stage 1: Size Code Filtering
+
+Compare user L/W max against nominal size code dimensions. Reject any size code whose nominal L or W exceeds the user limit.
+
+Examples:
+
+- `L <= 0.690 mm, W <= 0.390 mm`
+  - `03 (0201/0603 = 0.60 x 0.30)` -> pass
+  - `05 (0402/1005 = 1.00 x 0.50)` -> reject: L and W exceed max
+  - `02 (01005/0402 = 0.40 x 0.20)` -> pass, but capacitance feasibility is weak at this size
+  - `10 (0603/1608 = 1.60 x 0.80)` -> reject: L exceeds max
+
+### Stage 2: Thickness Code Filtering
+
+After size codes pass, check the thickness code from `MLCC-003` against T max.
+
+Examples:
+
+- `0201/0603 -> thickness code 3 = 0.30 +/-0.03 mm` -> if T max = 0.550 mm, pass
+- `01005/0402 -> thickness code 2 = 0.20 +/-0.02 mm` -> if T max = 0.550 mm, pass
+
+### Stage 3: Family-Specific Dimensions
+
+Specialty families have their own dimension tables that take priority over nominal size code dimensions. Check the family-specific reference chunk before concluding a size candidate passes.
+
+- `LSC -> MLCC-009`
+- `MFC -> MLCC-008`
+- `High Bending Strength -> MLCC-010`
+- `Low Acoustic Noise -> MLCC-011`
+- `Low ESL -> MLCC-012`
+
+Normal family candidates use nominal size + thickness code for first-pass filtering, then require datasheet verification for the exact physical envelope.
+
 ## Catalog Anomalies
 
 - Some new-product rows appear inconsistent with the part-number rule and displayed capacitance. Treat them as anchors, then require datasheet confirmation.

@@ -102,6 +102,75 @@ Expected behavior:
 - use the current-product lookup tool if available
 - continue the dialogue based on returned hits, not on a guessed final P/N
 
+## Full Response Example
+
+### Example: End-to-End Spec Preselection
+
+User prompt:
+
+`고객사 의뢰로 스펙 만족하는 MLCC 기종부터 선정해야해. A 온도특성, 정격전압 4V, L size 최대 690um, W size 최대 390um, T size 최대 550um, 기준용량 4.8uF, M편차, 고주파 저전계에서 1V DC 전계를 인가했을 때 최소 3.45uF 를 만족하는 기종을 catalog 기준으로 찾아줘.`
+
+Full response:
+
+---
+
+**1. Constraints Summary**
+
+| 구분 | 항목 | 값 |
+|---|---|---|
+| hard | 온도특성(유전체) 코드 | A (X5R) |
+| hard | 정격전압 | 4V (code R, 4.0Vdc) |
+| hard | L max | 0.690 mm |
+| hard | W max | 0.390 mm |
+| hard | T max | 0.550 mm |
+| hard | 편차 | M (±20%) |
+| soft | 기준용량 | 4.8 uF (비표준 → 표준 후보 도출) |
+| validation-only | 유효용량 | 고주파 저전계 1V DC에서 최소 3.45 uF |
+
+**2. Derived Code Mapping**
+
+- 온도특성 코드: `A` → X5R (Class II, -55~+85°C, ±15%)
+- 정격전압 코드: `R` → 4.0Vdc
+- 편차 코드: `M` → ±20%
+- Size 후보: `03` (0201/0603, nominal 0.60×0.30 mm) — L/W max 통과
+  - `05` (0402/1005, 1.00×0.50 mm) — L/W 초과로 탈락
+- Thickness 후보: code `3` (0.30 ±0.03 mm) — T max 0.550 mm 통과
+- 기준용량: 4.8 uF는 E-series 비표준
+  - 후보 1: 4.7 uF → code `475`
+  - 후보 2: 5.1 uF → code `515`
+
+**3. Exact Catalog Matches**
+
+exact catalog match: none in retrieved evidence
+
+(0201/0603 + X5R + 4.0V + 4.7~5.1 uF 조합의 orderable example part가 검색되지 않음)
+
+**4. Closest Catalog Anchors**
+
+| Anchor | Part | 일치 | 불일치 |
+|---|---|---|---|
+| 1 | CL03X475MS3CNW# | size 03, 4.7uF, ±20% | X6S(X, not A), 2.5V(S, not R) |
+
+→ 이 anchor는 0201/0603에서 4.7uF급 Class II가 물리적으로 가능하다는 feasibility evidence이지만, 온도특성과 전압이 다르므로 exact match는 아님.
+
+**5. Recommended Candidate Skeletons**
+
+| 순위 | Skeleton | 근거 | 미확정 |
+|---|---|---|---|
+| 1 | `CL03A515MR3?N?#` | 5.1uF는 4.8uF target 대비 상향 대체로 effective capacitance margin에 유리 | 8th~11th code (design, product, control, packaging) |
+| 2 | `CL03A475MR3?N?#` | 4.7uF는 target에 가장 가까운 하향 표준 nominal | 동일 |
+
+추천: skeleton 1 (`515`, 5.1uF)을 우선 preselection으로 권장. DC bias에 의한 용량 감소를 고려하면 높은 nominal이 3.45uF 최소 요건을 충족할 가능성이 더 높기 때문.
+
+**6. Needs Datasheet or Measured Validation**
+
+- 1V DC bias 고주파 저전계 조건에서의 실제 유효용량 ≥ 3.45 uF 여부
+- exact tail code (design, product/size control, control, packaging)
+- 해당 skeleton에 대응하는 orderable lineup 존재 여부
+- DC bias characteristic은 catalog의 sample graph만으로는 단정할 수 없으며, 개별 데이터시트 또는 실측 데이터가 필요함
+
+---
+
 ## Guardrailed Validation Requests
 
 ### Example 9

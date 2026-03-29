@@ -85,3 +85,68 @@
 
 - 최신 run 기준으로 후보 번호를 다시 해석
 - 문맥이 애매하면 어느 run인지 짧게 재확인
+
+## Full Response Example
+
+### Example: 첫 실행부터 top 5 제시까지
+
+User prompt:
+
+`lot_id L240301-A 기준으로 최적설계 돌려줘. 용량 10uF, chip thickness 0.85mm, chip length 1.6mm, chip width 0.8mm 타겟이야.`
+
+Full response:
+
+---
+
+**Step 1: Reference 검증**
+
+`check_optimal_design(lot_id="L240301-A")` 실행 결과:
+
+- 충족인자: Sheet 두께, 전극 폭, 전극 수, Margin, 유전체 두께, Cover 두께, 유전상수
+- 부족인자: (없음)
+
+→ reference LOT `L240301-A`는 시뮬레이션에 사용 가능합니다.
+
+**Step 2: Target 확인**
+
+| Target | 값 |
+|---|---|
+| 용량 | 10 uF |
+| Chip Thickness | 0.85 mm |
+| Chip Length | 1.6 mm |
+| Chip Width | 0.8 mm |
+
+**Step 3: DOE 입력값 수집**
+
+아직 DOE 입력값(params)이 필요합니다. 아래 항목의 절대값을 알려주세요:
+
+- Sheet T (um)
+- Electrode W (um)
+- Margin L (um)
+- Margin W (um)
+- Cover T (um)
+- 전극 수 (EA)
+
+(사용자가 값을 제공한 후)
+
+**Step 4: Top 5 결과**
+
+| 순위 | Sheet T | Elec W | Margin L | Margin W | Cover T | 전극수 | 예측 용량 | 예측 Thickness | Target 대비 용량 차이 | Target 대비 두께 차이 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | 5.0 | 680 | 85 | 60 | 30 | 162 | 10.12 uF | 0.846 mm | +0.12 uF | -0.004 mm |
+| 2 | 5.2 | 675 | 85 | 60 | 28 | 158 | 10.05 uF | 0.849 mm | +0.05 uF | -0.001 mm |
+| 3 | 4.8 | 690 | 80 | 55 | 32 | 166 | 10.21 uF | 0.851 mm | +0.21 uF | +0.001 mm |
+| 4 | 5.1 | 670 | 90 | 65 | 30 | 160 | 9.94 uF | 0.843 mm | -0.06 uF | -0.007 mm |
+| 5 | 5.3 | 685 | 80 | 60 | 25 | 155 | 9.88 uF | 0.840 mm | -0.12 uF | -0.010 mm |
+
+**요약:**
+
+1. 후보 1: 용량과 두께 모두 target에 근접. 균형 잡힌 설계.
+2. 후보 2: 용량 target에 가장 가까움. 두께도 margin 내.
+3. 후보 3: 용량 여유가 가장 크지만 두께가 target에 거의 도달.
+4. 후보 4: 두께 여유는 크지만 용량이 target 미달.
+5. 후보 5: 두께 margin이 가장 크지만 용량이 가장 부족.
+
+이 중 어느 후보를 base로 설계값을 조정하시겠습니까? 예: `2번 후보에서 Sheet T만 5.0으로 바꿔서 다시 돌려줘`
+
+---
