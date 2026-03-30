@@ -111,7 +111,7 @@ FROM public.mdh_contiguous_condition_view_dsgnagent
 WHERE chip_prod_id ILIKE 'CL32_106%'
 ```
 
-This returns all contiguous models sharing the same size (32), capacitance (106), but varying in dielectric, tolerance, voltage, and tail codes.
+This returns all contiguous models sharing the same size (32), capacitance (106), but varying in 온도특성, tolerance, voltage, and tail codes.
 
 ## Pattern Construction
 
@@ -190,6 +190,8 @@ Avoid broad questions like:
 
 ## Output Template
 
+### 일반 DB 조회 시
+
 When a DB lookup was used, include:
 
 1. `chip_prod_id lookup pattern`
@@ -203,3 +205,57 @@ Example wording:
 - `active lineup hits from DB: [ ... ]`
 - `current DB hits confirm that this front-side code family exists in the current lineup, but temperature characteristic and tail-code selection remain unresolved.`
 - `next question: 온도특성은 X5R(A)와 X7R(B) 중 어느 쪽이 필요합니까?`
+
+### 인접기종 검색 시 응답 형식
+
+인접기종(contiguous/adjacent model) 요청일 때는 아래 흐름으로 간결하게 응답한다. 사용자가 보고 싶은 것은 "내 요청이 어떤 코드로 변환되어 DB에 들어갔고, 뭐가 나왔는지"이다. 장황한 7단 응답 구조를 쓰지 않는다.
+
+**응답 구조:**
+
+1. **스켈레톤 조립 과정** — 사용자의 요청 스펙에서 chip_prod_id 패턴이 어떻게 만들어지는지 단계별로 보여준다.
+2. **DB 조회 및 결과** — 조립된 패턴을 tool에 넣고, 결과 목록을 보여준다.
+3. **간단한 후속 안내** — 결과가 다건이면 축소 질문, 0건이면 완화 제안. 한두 문장으로 마무리.
+
+**Example:**
+
+User: `CL32A106 인접기종 찾아줘`
+
+---
+
+**스켈레톤 조립**
+
+요청에서 다음 코드를 추출합니다:
+- `CL` — 삼성전기 MLCC 접두어
+- `32` — 사이즈 1210 (3.2×2.5mm)
+- `A` — 온도특성 X5R (-55~+85°C, ±15%)
+- `106` — 용량 10µF
+
+편차·전압·tail code는 지정되지 않았으므로 와일드카드 처리합니다.
+
+→ 조회 패턴: `CL32A106%`
+
+**DB 조회 결과**
+
+`search_query_database` 실행:
+```sql
+SELECT chip_prod_id
+FROM public.mdh_contiguous_condition_view_dsgnagent
+WHERE chip_prod_id ILIKE 'CL32A106%'
+```
+
+| # | chip_prod_id |
+|---|---|
+| 1 | CL32A106KAUQNNC |
+| 2 | CL32A106KAYNNNE |
+| 3 | CL32A106KBUNNNE |
+| ... | ... |
+
+총 N건이 조회되었습니다.
+
+**후속 안내**
+
+전압과 편차 조건을 알려주시면 더 좁힐 수 있습니다. 예: 전압 16V(O), 편차 ±10%(K) 등
+
+---
+
+이 형식의 핵심은 사용자가 **자신의 스펙이 어떻게 코드로 변환되었는지 투명하게 보고**, 그 코드로 **실제 DB에서 뭐가 나왔는지 즉시 확인**할 수 있다는 점이다. 그 외 설명은 최소화한다.

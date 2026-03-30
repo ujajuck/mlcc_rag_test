@@ -47,7 +47,7 @@ def search_rag(query: str, top_k: int = 5) -> dict:
 
     Args:
         query: Natural-language or code-based search query.
-               Examples: "A X5R dielectric code", "0201 0603 4.7uF X5R 4V",
+               Examples: "A X5R 온도특성 코드", "0201 0603 4.7uF X5R 4V",
                "온도특성 A X5R", "high level II outdoor 85 85 1000h"
         top_k: Maximum number of chunks to return (default 5).
 

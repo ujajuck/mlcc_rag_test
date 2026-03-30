@@ -28,7 +28,7 @@ Use this reference when mapping user constraints to SEMCO MLCC catalog concepts 
 
 Treat these as catalog-confirmable:
 
-- temperature-characteristic or dielectric-code meaning
+- 온도특성 코드 의미
 - rated-voltage code meaning
 - capacitance-code rule
 - capacitance-tolerance code meaning
@@ -49,7 +49,7 @@ Treat `caution_characteristics` graphs as sample guidance only.
 
 ## Chunk Routing
 
-- `MLCC-002` to `MLCC-004`: part numbering, size, temperature-characteristic or dielectric code, capacitance code, tolerance, voltage, thickness, design, control, packaging
+- `MLCC-002` to `MLCC-004`: part numbering, size, 온도특성 코드, capacitance code, tolerance, voltage, thickness, design, control, packaging
 - `MLCC-005`: reliability-level comparison
 - `MLCC-006` to `MLCC-012`: product families
 - `MLCC-013` to `MLCC-014`: new-product example parts
@@ -82,9 +82,9 @@ Treat `caution_characteristics` graphs as sample guidance only.
 
 ### Temperature Characteristic
 
-Treat `temperature characteristic`, `온도특성`, and `dielectric code` as the same selection field for this catalog. The catalog's English heading is `DIELECTRIC CODE`, but in user-facing Korean output prefer `온도특성(유전체) 코드`.
+카탈로그 원문의 영문 헤딩은 `DIELECTRIC CODE`이지만, 사용자에게 답변할 때는 항상 **온도특성 코드**라고 표기한다. `temperature characteristic`, `온도특성`, `dielectric code`는 모두 같은 필드를 가리킨다.
 
-Interpret single-letter requests as this code first when the request is about temperature characteristic.
+단일 문자 요청이 오면 온도특성 코드로 먼저 해석한다.
 
 ## Core Code Maps
 
@@ -106,7 +106,7 @@ Interpret single-letter requests as this code first when the request is about te
 - `01 = 0306 / 0816`
 - `19 = 0503 / 1209`
 
-### Temperature-Characteristic or Dielectric Code
+### 온도특성 코드
 
 Class I:
 
@@ -219,7 +219,7 @@ Use these application cues:
 
 Use the canonical skeleton:
 
-`CL [size] [dielectric] [capacitance] [tolerance] [voltage] [thickness] [design] [product-or-size-control] [control] [packaging]`
+`CL [size] [온도특성] [capacitance] [tolerance] [voltage] [thickness] [design] [product-or-size-control] [control] [packaging]`
 
 Keep the 8th-11th codes unresolved unless directly supported by retrieved evidence.
 

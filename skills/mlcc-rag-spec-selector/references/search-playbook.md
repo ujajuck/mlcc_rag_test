@@ -22,12 +22,12 @@ Target:
 
 Goal:
 
-- map temperature-characteristic or dielectric code, voltage, capacitance, tolerance, size, and thickness constraints into code candidates
+- map 온도특성 코드, voltage, capacitance, tolerance, size, and thickness constraints into code candidates
 
 Query patterns:
 
-- `A X5R dielectric code`
-- `temperature characteristic A X5R`
+- `A X5R 온도특성 코드`
+- `온도특성 A X5R`
 - `온도특성 A X5R`
 - `capacitance code 4.7uF 475`
 - `기준용량 4.7uF 475`
@@ -201,7 +201,7 @@ Example:
 
 When the user writes in Korean, expand both the Korean phrase and the catalog-facing English alias together.
 
-- `온도특성 A` -> `A`, `X5R`, `temperature characteristic`, `dielectric code`
+- `온도특성 A` -> `A`, `X5R`, `온도특성 코드`, `temperature characteristic`
 - `정격전압 4V` -> `4.0Vdc`, `code R`, `rated voltage`
 - `기준용량 4.8uF` -> `4.8uF`, `4.7uF`, `5.1uF`, `475`, `515`, `capacitance code`
 - `M편차` -> `+/-20%`, `tolerance code M`

@@ -1,55 +1,83 @@
 ---
 name: mlcc-optimal-design-doe
-description: Reference LOT 기반 MLCC DOE 최적설계 시뮬레이션 skill. 사용자가 `lot_id 기준으로 최적설계 돌려줘`, `reference lot 검증해줘`, `타겟 용량/두께/L/W를 만족하는 설계 추천해줘`, `DOE 범위를 정해서 optimal_design 돌려줘`, `top 5 후보 보여줘`, `3번째 설계값에서 Sheet T만 5.2로 바꿔 다시 시뮬레이션해줘` 같은 요청을 할 때 사용한다. `check_optimal_design`로 reference 유효성을 확인하고, `targets.*`와 `params.*`를 수집해 `optimal_design` payload를 만들고, 결과 top 5와 후속 재시뮬레이션 대화를 관리한다.
+description: Reference LOT 기반 MLCC 설계 시뮬레이션 skill. 최적설계(DOE), 신뢰성 시뮬레이션, 또는 둘을 조합한 복합 분석을 수행한다. 사용자가 `lot_id 기준으로 최적설계 돌려줘`, `reference lot 검증해줘`, `부족인자 값 채워줘`, `신뢰성 시뮬레이션 돌려줘`, `여러 설계값으로 신뢰성 비교해줘`, `신뢰성 좋은 것 중에 최적설계 추천해줘`, `알아서 돌려보고 제일 좋은거 찾아줘` 같은 요청을 할 때 사용한다.
 ---
 
-# MLCC DOE 최적설계
+# MLCC 설계 시뮬레이션
 
-Reference LOT을 기준으로 DOE 시뮬레이션을 오케스트레이션한다. 이 skill의 역할은 계산 자체가 아니라 `reference 검증 -> 입력 수집 -> tool 호출 -> 결과 비교 -> 재시뮬레이션` 흐름을 안정적으로 진행하는 것이다.
+Reference LOT을 기준으로 최적설계(DOE)와 신뢰성 시뮬레이션을 오케스트레이션한다. 이 skill은 계산 자체가 아니라 **검증 → 입력 수집 → tool 호출 → 결과 비교 → 재시뮬레이션** 흐름을 유연하게 진행하는 것이 역할이다.
 
 필요할 때 아래 reference를 읽는다.
 
-- `references/tool-contracts.md`: `check_optimal_design`, `optimal_design`, `search_rag` (공정검사표준)의 입력/출력 계약
-- `references/workflow-details.md`: 상태 관리, 질문 순서, payload 조립, params 값 형식, rerun 규칙
+- `references/tool-contracts.md`: 5개 tool의 입출력 계약
+- `references/pattern-validation.md`: LOT 검증 + 부족인자 보충 패턴
+- `references/pattern-optimal.md`: 최적설계 DOE 패턴
+- `references/pattern-reliability.md`: 신뢰성 시뮬레이션 패턴
+- `references/pattern-autonomous.md`: 자율 반복/비교/추천 패턴
 - `references/prompt-examples.md`: 한국어 사용자 질의와 응답 패턴
 
 ## 핵심 원칙
 
-- `lot_id`가 없으면 가장 먼저 `lot_id`를 요청한다.
-- `lot_id`가 새로 들어오면 반드시 먼저 `check_optimal_design`을 호출한다.
-- `check_optimal_design` 결과에 `부족인자`가 있으면 `optimal_design`을 호출하지 않는다.
-- `targets.*`와 `params.*`는 현재 기준으로 `절대값` payload를 우선 사용한다.
-- 초기 실행의 `params.*`는 ref lot 기준 ±범위의 다중 포인트 리스트이고, rerun의 `params.*`는 단일 값 `[value]` 리스트이다. 자세한 규칙은 `references/workflow-details.md`를 참조한다.
-- 시뮬레이션 결과를 사용자에게 제시하기 전에, `search_rag`로 공정검사표준을 검색해 각 설계값이 표준 범위 안에 있는지 확인한다. 표준을 벗어나는 값이 있으면 경고와 함께 제시한다.
+- `lot_id`가 없으면 가장 먼저 요청한다.
+- 새 `lot_id`가 들어오면 반드시 `check_optimal_design`을 먼저 호출한다.
+- `부족인자`가 있으면 사용자에게 값을 받아 `update_lot_reference`로 채울 수 있다. 무조건 다른 lot을 요구하지 않는다.
+- `optimal_design`의 params는 **list** 형태다. DOE 탐색은 다중 포인트 리스트, 재실행은 단일 값 `[value]` 리스트.
+- `reliability_simulation`은 **단일 설계값(scalar)**만 받는다. optimal_design과 다르다.
+- 시뮬레이션 결과 제시 전에 `search_rag`로 공정검사표준을 검증한다.
 - 이미 알고 있는 값은 다시 묻지 않는다.
-- 사용자가 `3번째 후보에서 Sheet T만 5.2`처럼 말하면 최신 top 5 결과에서 해당 후보를 base로 삼고, 지정한 필드만 override해서 다시 실행한다.
-- 현재 대화에 최신 top 5 결과가 없는데 사용자가 `3번째 후보`처럼 참조하면 어느 run의 후보인지 먼저 확인한다.
+- 사용자가 `3번 후보에서 Sheet T만 5.2로`처럼 말하면 해당 후보를 base로 override해서 재실행한다.
 
-## 진행 순서
+## 패턴 라우팅
 
-1. `lot_id` 확보
-2. `check_optimal_design` 실행
-3. `충족인자`, `부족인자` 해석
-4. reference가 유효하면 `targets.*` 수집
-5. `params.*` 수집 (초기 실행: ref lot 기준 다중 포인트 리스트 / rerun: 단일 값 리스트)
-6. `optimal_design` payload 조립
-7. `optimal_design` 실행
-8. **공정검사표준 검증**: `search_rag`로 공정검사표준 문서를 검색해 top 5 각 후보의 설계값이 표준 범위 내인지 확인
-9. top 5 후보를 번호와 함께 제시 (공정검사표준 위반 항목은 ⚠️ 경고 표시)
-10. 사용자의 수정 지시가 오면 기존 후보를 base로 override 후 재시뮬레이션 (step 5로 돌아감, 이때 params는 단일 값 리스트)
+사용자 요청을 분석해 아래 패턴을 하나 이상 조합한다. 패턴은 자유롭게 체이닝할 수 있다.
+
+| 요청 유형 | 패턴 조합 |
+|---|---|
+| "lot 검증해줘" / "부족인자 채워줘" | 검증 패턴 |
+| "최적설계 돌려줘" / "DOE 범위 잡아서" | 검증 → 최적설계 패턴 |
+| "신뢰성 시뮬레이션 돌려줘" | 검증 → 신뢰성 패턴 |
+| "후보 3번에서 Sheet T만 바꿔서 다시" | 최적설계 패턴 (rerun) |
+| "후보 3번으로 신뢰성 돌려봐" | 신뢰성 패턴 (기존 후보 활용) |
+| "여러번 돌려보고 제일 좋은거 추천해줘" | 검증 → 자율 반복 패턴 |
+| "신뢰성 좋은걸로 최적설계 돌려줘" | 검증 → 신뢰성 → 최적설계 (체이닝) |
+
+각 패턴의 상세 흐름은 해당 reference 문서에 있다. 아래는 패턴별 요약이다.
+
+### 검증 패턴 (references/pattern-validation.md)
+
+1. `check_optimal_design(lot_id)` → 충족/부족인자 확인
+2. 부족인자가 있으면 사용자에게 값을 받아 `update_lot_reference`로 반영
+3. 모든 인자가 채워지면 시뮬레이션 진행 가능
+
+### 최적설계 패턴 (references/pattern-optimal.md)
+
+1. targets 4개 수집 (용량, thickness, length, width)
+2. params 수집 — 초기 실행: ref lot 기준 ±범위 다중 포인트 리스트 / 재실행: 단일 값 리스트
+3. `optimal_design` 호출 → top 5 제시
+4. 공정검사표준 검증 후 결과 제시
+5. 사용자 수정 지시 시 override 재실행
+
+### 신뢰성 패턴 (references/pattern-reliability.md)
+
+1. 설계값 확보 (직접 입력 또는 기존 optimal_design 후보에서 가져옴)
+2. `reliability_simulation` 호출 → 통과확률 반환
+3. 단일 설계 기준이므로 여러 조건을 비교하려면 반복 호출 필요
+
+### 자율 반복 패턴 (references/pattern-autonomous.md)
+
+사용자가 "알아서 돌려보고 추천해줘" 류의 복합 요청을 하면, 모델이 스스로 탐색 전략을 세우고 tool을 반복 호출해 최적 조건을 찾는다. 최적설계와 신뢰성을 자유롭게 조합할 수 있다.
 
 ## 대화 규칙
 
-- `targets.*`는 보통 4개 수준이므로 빠진 값만 한 번에 묻는다.
-- `params.*`는 약 10개 수준이므로 너무 길면 두 묶음으로 나눠 묻되, 이미 있는 값은 제외한다.
-- 질문은 항상 `지금 실행을 위해 무엇이 빠졌는지` 기준으로만 한다.
-- 결과를 보여줄 때는 각 후보의 `번호`, `핵심 설계값`, `예측 결과`, `target과의 차이`를 함께 요약한다.
-- 내부적으로는 최신 `lot_id`, 최신 `targets`, 최신 `params`, 최신 `top_candidates`를 유지한다고 가정하고 대화를 이어간다.
+- targets는 보통 4개 수준이므로 빠진 값만 한 번에 묻는다.
+- params는 약 6개 수준이므로 너무 길면 두 묶음으로 나눠 묻되, 이미 있는 값은 제외한다.
+- 질문은 항상 "지금 실행을 위해 무엇이 빠졌는지" 기준으로만 한다.
+- 결과를 보여줄 때는 각 후보의 번호, 핵심 설계값, 예측 결과, target과의 차이를 함께 요약한다.
+- 내부적으로 최신 lot_id, targets, params, top_candidates를 유지한다고 가정하고 대화를 이어간다.
 
 ## 실패 처리
 
-- `부족인자`가 있으면 어떤 인자가 부족한지 그대로 보여주고 다른 `lot_id`를 요청한다.
-- `optimal_design` 실행이 실패하면 payload를 추측 수정하지 말고, tool 오류 메시지 기준으로 부족하거나 잘못된 필드만 바로잡는다.
-- 사용자가 존재하지 않는 후보 번호를 말하면 현재 보이는 후보 번호 범위를 다시 안내한다.
-- 사용자가 존재하지 않는 설계 필드를 수정하려 하면 실제 candidate design 값에 있는 필드명으로 다시 확인한다.
-- 공정검사표준 RAG 검색이 실패하거나 해당 설계 항목에 대한 표준 정보가 없으면, `공정검사표준 미확인` 표시를 달고 결과를 제시한다. 표준 확인 실패가 시뮬레이션 결과 자체를 차단하지는 않는다.
+- `부족인자`가 있으면 어떤 인자가 부족한지 보여주고, 값을 채울지 다른 lot을 쓸지 묻는다.
+- `optimal_design` 실행 실패 시 payload를 추측 수정하지 말고, tool 오류 메시지 기준으로 부족/잘못된 필드만 바로잡는다.
+- 존재하지 않는 후보 번호 참조 시 현재 보이는 번호 범위를 다시 안내한다.
+- 공정검사표준 RAG 검색 실패 시 `공정검사표준 미확인` 표시를 달고 결과를 제시한다. 표준 확인 실패가 시뮬레이션 자체를 차단하지는 않는다.

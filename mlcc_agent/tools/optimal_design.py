@@ -5,6 +5,10 @@ optimal MLCC design candidates given targets and parameter ranges.
 
 This mock returns sample top-5 results so the agent dialogue flow
 (result presentation, rerun with overrides) can be tested.
+
+params.* are lists:
+  - Multi-point list for DOE sweep: [4.8, 4.9, 5.0, 5.1, 5.2]
+  - Single-value list for rerun/pinpoint: [5.0]
 """
 
 import random
@@ -16,18 +20,21 @@ def optimal_design(
     target_thickness: float,
     target_length: float,
     target_width: float,
-    sheet_t: float,
-    electrode_w: float,
-    margin_l: float,
-    margin_w: float,
-    cover_t: float,
-    electrode_count: int,
+    sheet_t: list[float],
+    electrode_w: list[float],
+    margin_l: list[float],
+    margin_w: list[float],
+    cover_t: list[float],
+    electrode_count: list[int],
 ) -> dict:
     """Run DOE optimal design simulation.
 
     Calculates the top 5 optimal MLCC design candidates based on the
     reference LOT, target specifications, and DOE input parameters.
-    All values should be provided as absolute values.
+
+    Each params field is a list of values to explore:
+    - For DOE sweep: provide multiple points, e.g. [4.8, 4.9, 5.0, 5.1, 5.2]
+    - For rerun with specific values: provide a single-element list, e.g. [5.0]
 
     Args:
         lot_id: Reference LOT identifier (must pass check_optimal_design first).
@@ -35,27 +42,31 @@ def optimal_design(
         target_thickness: Target chip thickness in mm.
         target_length: Target chip length in mm.
         target_width: Target chip width in mm.
-        sheet_t: Sheet thickness in um.
-        electrode_w: Electrode width in um.
-        margin_l: Margin length in um.
-        margin_w: Margin width in um.
-        cover_t: Cover thickness in um.
-        electrode_count: Number of electrodes (EA).
+        sheet_t: Sheet thickness values in um (list).
+        electrode_w: Electrode width values in um (list).
+        margin_l: Margin length values in um (list).
+        margin_w: Margin width values in um (list).
+        cover_t: Cover thickness values in um (list).
+        electrode_count: Number of electrodes values in EA (list).
 
     Returns:
         A dict with 'status', 'lot_id', 'targets', and 'top_candidates'.
         Each candidate contains design values and predicted performance.
     """
-    random.seed(hash((lot_id, target_capacity, sheet_t, electrode_count)) % 2**32)
+    # Use center values as seed for reproducibility
+    center_st = sheet_t[len(sheet_t) // 2]
+    center_ec = electrode_count[len(electrode_count) // 2]
+    random.seed(hash((lot_id, target_capacity, center_st, center_ec)) % 2**32)
 
     candidates = []
     for rank in range(1, 6):
-        st = sheet_t + random.uniform(-0.3, 0.3)
-        ew = electrode_w + random.uniform(-15, 15)
-        ml = margin_l + random.uniform(-5, 5)
-        mw = margin_w + random.uniform(-5, 5)
-        ct = cover_t + random.uniform(-3, 3)
-        ec = electrode_count + random.randint(-4, 4)
+        # Pick from the provided parameter ranges
+        st = random.choice(sheet_t) + random.uniform(-0.1, 0.1)
+        ew = random.choice(electrode_w) + random.uniform(-5, 5)
+        ml = random.choice(margin_l) + random.uniform(-2, 2)
+        mw = random.choice(margin_w) + random.uniform(-2, 2)
+        ct = random.choice(cover_t) + random.uniform(-1, 1)
+        ec = random.choice(electrode_count) + random.randint(-2, 2)
 
         pred_cap = target_capacity * random.uniform(0.97, 1.04)
         pred_thick = target_thickness * random.uniform(0.98, 1.02)
