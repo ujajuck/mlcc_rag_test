@@ -1,12 +1,13 @@
 # Active Lineup Lookup
 
-Use this reference when a request is partial, ambiguous, or requires checking whether a matching product is currently flowing in the internal DB.
+Use this reference when a request is partial, ambiguous, or requires checking whether a matching product is currently flowing in the internal DB, or when you need to find contiguous (adjacent) models.
 
 ## Contents
 
 - Purpose
 - When to Invoke the DB Lookup
-- Tool Contract
+- Tool Contract (active_lineup_lookup)
+- Tool Contract (search_query_database) – Contiguous / Adjacent Model Search
 - Pattern Construction
 - Result Handling
 - Follow-up Question Strategy
@@ -14,12 +15,13 @@ Use this reference when a request is partial, ambiguous, or requires checking wh
 
 ## Purpose
 
-The catalog tells you what is electrically plausible and how the code system works. The DB lookup tells you whether matching `chip_prod_id` rows exist in the `mdh_continous_view_3` view right now.
+The catalog tells you what is electrically plausible and how the code system works. The DB lookup tells you whether matching `chip_prod_id` rows exist in the production views right now.
 
-Use the two data sources together:
+Use the data sources together:
 
 - `search_rag` for code interpretation, family logic, thickness logic, and catalog anchors
-- active-lineup DB lookup for current `chip_prod_id` matches from a partial or full pattern
+- `active_lineup_lookup` for simple pattern-based current `chip_prod_id` matches from `mdh_continous_view_3`
+- `search_query_database` for flexible SQL-based search against `public.mdh_contiguous_condition_view_dsgnagent` – especially useful for **contiguous / adjacent model** discovery
 
 ## When to Invoke the DB Lookup
 
@@ -33,7 +35,7 @@ Invoke the DB lookup when any of these are true:
 Do not wait for a perfect full code if a useful partial pattern already exists.
 Do not tell the user that you will check the DB in a future turn if the tool is already available now.
 
-## Tool Contract
+## Tool Contract (active_lineup_lookup)
 
 The skill assumes an active-lineup function tool exists with a flat input schema.
 
@@ -56,6 +58,60 @@ Preferred schema style:
 - avoid nested filter objects unless the implementation truly requires them
 
 If the actual tool name differs, use the function whose description explicitly says it searches `chip_prod_id`.
+
+## Tool Contract (search_query_database) – Contiguous / Adjacent Model Search
+
+Use `search_query_database` when you need to **find contiguous (adjacent) models** or run more flexible queries than a simple pattern match.
+
+Target table: `public.mdh_contiguous_condition_view_dsgnagent`
+
+### Input
+
+- parameter: `query`
+- type: `string` – a full SQL SELECT statement
+
+### Typical Query
+
+```sql
+SELECT chip_prod_id
+FROM public.mdh_contiguous_condition_view_dsgnagent
+WHERE chip_prod_id ILIKE '%CL32%106%O%'
+```
+
+### Query Construction Rules
+
+1. Always use `SELECT` – the tool rejects INSERT / UPDATE / DELETE.
+2. Use `ILIKE` for case-insensitive pattern matching with `%` wildcards.
+3. Use `_` for single-character wildcards within `ILIKE`.
+4. You can combine multiple `WHERE` conditions with `AND` / `OR`.
+5. You can select specific columns or use `*`.
+
+### When to Prefer search_query_database over active_lineup_lookup
+
+- When searching for **contiguous / adjacent models** (인접기종)
+- When you need more complex filtering (e.g., combining multiple conditions)
+- When you need to run custom SQL logic beyond simple pattern matching
+- When searching against the `mdh_contiguous_condition_view_dsgnagent` view specifically
+
+### Output
+
+Returns a dict with:
+- `status`: "success" or "error"
+- `query`: the SQL that was executed
+- `row_count`: number of matching rows
+- `rows`: list of dicts, each containing the selected column values
+
+### Example Usage for Adjacent Model Search
+
+User asks: "CL32A106 인접기종 찾아줘"
+
+```sql
+SELECT chip_prod_id
+FROM public.mdh_contiguous_condition_view_dsgnagent
+WHERE chip_prod_id ILIKE 'CL32_106%'
+```
+
+This returns all contiguous models sharing the same size (32), capacitance (106), but varying in dielectric, tolerance, voltage, and tail codes.
 
 ## Pattern Construction
 

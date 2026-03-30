@@ -11,7 +11,7 @@ Read the bundled references as needed:
 
 - Read `references/catalog-codebook.md` for code maps, family routing, chunk targets, size/thickness filtering rules, and catalog guardrails.
 - Read `references/search-playbook.md` for search order, query patterns, ranking, and response format.
-- Read `references/active-lineup-lookup.md` when the request is partial, ambiguous, or requires checking currently flowing products by `chip_prod_id`.
+- Read `references/active-lineup-lookup.md` when the request is partial, ambiguous, requires checking currently flowing products by `chip_prod_id`, or when finding contiguous/adjacent models (인접기종) via `search_query_database`.
 - Read `references/prompt-examples.md` for Korean and mixed-language invocation examples.
 
 ## Operating Boundaries
@@ -29,6 +29,7 @@ Read the bundled references as needed:
    - soft constraints: application hints, preferred nominal capacitance, packaging preference, anchor proximity
    - validation-only constraints: effective capacitance under bias or frequency, ESR/ESL, ripple, exact tail code
    - active-lineup check trigger: partial request, ambiguous request, user asks whether the product is currently flowing, or unresolved code positions remain after catalog reasoning
+   - adjacent/contiguous model search trigger: user asks for 인접기종, adjacent models, or contiguous models → use `search_query_database` with a SQL query against `public.mdh_contiguous_condition_view_dsgnagent`
 2. Normalize units before retrieval:
    - lengths to `mm`
    - capacitance to `uF` and derived E-series code candidates
@@ -39,6 +40,7 @@ Read the bundled references as needed:
 5. Retrieve `new_product` anchors after the code mapping is stable. Prefer nearby catalog examples over free-form guessing.
 6. Build one or more `candidate skeletons` from the catalog evidence. If the request is incomplete, also build a `chip_prod_id lookup pattern` that preserves known code positions and marks unresolved single-character slots with `_`.
 7. If an active-lineup lookup tool is available and the request is partial, ambiguous, or needs current-product confirmation, call that tool with the `chip_prod_id` pattern and get the returned list before trying to force a final answer.
+   - For **contiguous/adjacent model search** (인접기종 검색), use `search_query_database` instead. Write a SQL SELECT query against `public.mdh_contiguous_condition_view_dsgnagent` with `ILIKE` to find adjacent models sharing similar chip_prod_id patterns.
 8. If the DB lookup returns multiple hits, show the list and ask one targeted follow-up question that narrows the unresolved slot or requirement. Continue the conversation instead of picking arbitrarily.
 9. If the DB lookup returns zero hits, enter the **condition-relaxation loop**:
    a. Identify which spec dimensions are encoded in the current skeleton. For example `CL32_106_O____` encodes size (`32` = 1210), capacitance (`106` = 10 uF), and voltage (`O` = 16 V).

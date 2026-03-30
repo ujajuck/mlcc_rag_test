@@ -11,6 +11,7 @@ Additional tools provided:
   - read_md_file: Read skill reference .md files on demand
   - search_rag: Query the SEMCO MLCC catalog vector DB
   - active_lineup_lookup: Check currently flowing chip_prod_id
+  - search_query_database: Execute SQL SELECT on mdh_contiguous_condition_view_dsgnagent for adjacent-model search
   - check_optimal_design: Validate a reference LOT
   - optimal_design: Run DOE simulation
 """
@@ -26,6 +27,7 @@ from .tools import (
     read_md_file,
     search_rag,
     active_lineup_lookup,
+    search_query_database,
     check_optimal_design,
     optimal_design,
 )
@@ -57,6 +59,7 @@ root_agent = LlmAgent(
         read_md_file,
         search_rag,
         active_lineup_lookup,
+        search_query_database,
         check_optimal_design,
         optimal_design,
     ],
