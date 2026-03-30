@@ -1,118 +1,118 @@
 ---
 name: mlcc-rag-spec-selector
-description: Search-rag-plus-lineup skill for Samsung Electro-Mechanics MLCC catalog preselection and active product narrowing. Use when an agent in a closed network must answer customer MLCC spec requests or Korean prompts such as `온도특성 A`, `정격전압 4V`, `기준용량 4.8uF`, `M편차`, `고객사 의뢰 스펙 만족 MLCC 선정`, or partial part patterns like `CL32_106_O____` by querying a vector DB built from the SEMCO MLCC commercial-industrial catalog, mapping natural-language or 자연어 제약조건 to catalog codes, retrieving supporting chunks, proposing candidate part-number skeletons, and, when the request is partial or ambiguous, using a DB lookup function on `chip_prod_id` to list currently flowing matches before continuing the dialogue.
+description: 삼성전기 MLCC 카탈로그 기반 사전 선정 및 활성 라인업 축소를 위한 search_rag+DB 조회 스킬. 폐쇄망 에이전트가 고객 MLCC 스펙 요청(예: `온도특성 A`, `정격전압 4V`, `기준용량 4.8uF`, `M편차`, `고객사 의뢰 스펙 만족 MLCC 선정`, `CL32_106_O____`)에 답해야 할 때 사용한다. 벡터DB 카탈로그 청크를 조회해 자연어 제약조건을 코드로 매핑하고, 근거 청크를 바탕으로 후보 part-number 스켈레톤을 제안하며, 요청이 부분적/모호할 때 `chip_prod_id` 기반 활성 제품 조회로 대화를 이어간다.
 ---
 
-# MLCC RAG Spec Selector
+# MLCC RAG 스펙 셀렉터
 
-Convert customer MLCC requirements into catalog-based candidates using `search_rag` first and an active-lineup DB lookup when needed. Use this skill for preselection and evidence-backed reasoning, not for final orderable P/N confirmation.
+고객 MLCC 요구사항을 카탈로그 기반 후보로 변환한다. 기본적으로 `search_rag`를 먼저 사용하고, 필요 시 활성 라인업 DB 조회를 수행한다. 이 스킬은 **사전 선정과 근거 기반 추론**을 위한 것이며, 최종 주문 가능 P/N 확정 용도가 아니다.
 
-Read the bundled references as needed:
+필요 시 아래 레퍼런스를 읽는다.
 
-- Read `references/catalog-codebook.md` for code maps, family routing, chunk targets, size/thickness filtering rules, and catalog guardrails.
-- Read `references/search-playbook.md` for search order, query patterns, ranking, and response format.
-- Read `references/active-lineup-lookup.md` when the request is partial, ambiguous, requires checking currently flowing products by `chip_prod_id`, or when finding contiguous/adjacent models (인접기종) via `search_query_database`.
-- Read `references/prompt-examples.md` for Korean and mixed-language invocation examples.
+- `references/catalog-codebook.md`: 코드 매핑, 패밀리 라우팅, 청크 조회 타깃, 사이즈/두께 필터링 규칙, 카탈로그 가드레일
+- `references/search-playbook.md`: 검색 순서, 쿼리 패턴, 랭킹, 응답 포맷
+- `references/active-lineup-lookup.md`: 부분/모호 요청, `chip_prod_id` 기준 현재 유통 제품 확인, `search_query_database`를 통한 인접기종 탐색
+- `references/prompt-examples.md`: 한국어/혼합 언어 호출 예시
 
-## Operating Boundaries
+## 운영 경계
 
-- Treat the catalog as authoritative for temperature-characteristic or dielectric codes, voltage codes, capacitance-code rules, tolerance codes, size codes, thickness-code filtering, reliability-family descriptions, and any example part number explicitly shown in retrieved chunks.
-- Treat the active-lineup DB lookup as authoritative only for whether matching `chip_prod_id` rows currently exist in the `mdh_continous_view_3` view.
-- Treat DC-bias behavior, high-frequency effective capacitance, ESR/ESL exact values, exact orderable tail codes, and real lineup availability as validation-only unless a retrieved chunk states them directly for the target part.
-- Treat caution graphs and characteristic plots as sample guidance only. Do not convert them into exact guarantees for a candidate part.
-- Never invent a full part number when the 8th-11th codes are not directly supported by retrieved evidence. Emit a skeleton or mark fields as TBD.
+- 온도특성/유전체 코드, 전압 코드, 용량 코드 규칙, 편차 코드, 사이즈 코드, 두께 코드 필터, 신뢰성 패밀리 설명, 조회된 청크 내 명시 예시 P/N은 **카탈로그를 기준 데이터**로 간주한다.
+- 활성 라인업 DB 조회는 `mdh_continous_view_3` 뷰에서 **일치하는 `chip_prod_id` 행의 현재 존재 여부만** 확정 정보로 간주한다.
+- DC 바이어스 거동, 고주파 유효 용량, ESR/ESL 정확값, 정확한 주문 꼬리코드, 실제 라인업 가용성은 대상 파트에 대해 청크에 직접 명시된 경우를 제외하면 **검증 항목**으로 취급한다.
+- 주의 그래프/특성 곡선은 샘플 가이드이며, 후보 파트의 정량 보증치로 환산하지 않는다.
+- 8~11번째 코드가 근거 청크로 직접 뒷받침되지 않으면 완전한 part number를 임의 생성하지 않는다. 스켈레톤 또는 TBD로 표기한다.
 
-## Workflow
+## 워크플로우
 
-1. Parse the user request into:
-   - hard constraints: temperature characteristic or dielectric code, rated voltage, L/W/T max, tolerance, explicit family or reliability requirement
-   - soft constraints: application hints, preferred nominal capacitance, packaging preference, anchor proximity
-   - validation-only constraints: effective capacitance under bias or frequency, ESR/ESL, ripple, exact tail code
-   - active-lineup check trigger: partial request, ambiguous request, user asks whether the product is currently flowing, or unresolved code positions remain after catalog reasoning
-   - adjacent/contiguous model search trigger: user asks for 인접기종, adjacent models, or contiguous models → use `search_query_database` with a SQL query against `public.mdh_contiguous_condition_view_dsgnagent`
-2. Normalize units before retrieval:
-   - lengths to `mm`
-   - capacitance to `uF` and derived E-series code candidates
-   - voltage to `Vdc`
-   - tolerance words such as `M` to both code and percent
-3. Retrieve `part_numbering` evidence first. Resolve temperature characteristic or dielectric code, voltage, capacitance, tolerance, size, and thickness-code constraints before searching example parts.
-4. Retrieve `product_family` and `reliability_level` evidence next. Use application hints to choose between Standard, High Level I, High Level II, MFC, LSC, High Bending Strength, Low Acoustic Noise, and Low ESL.
-5. Retrieve `new_product` anchors after the code mapping is stable. Prefer nearby catalog examples over free-form guessing.
-6. Build one or more `candidate skeletons` from the catalog evidence. If the request is incomplete, also build a `chip_prod_id lookup pattern` that preserves known code positions and marks unresolved single-character slots with `_`.
-7. If an active-lineup lookup tool is available and the request is partial, ambiguous, or needs current-product confirmation, call that tool with the `chip_prod_id` pattern and get the returned list before trying to force a final answer.
-   - For **contiguous/adjacent model search** (인접기종 검색), use `search_query_database` instead. Write a SQL SELECT query against `public.mdh_contiguous_condition_view_dsgnagent` with `ILIKE` to find adjacent models sharing similar chip_prod_id patterns.
-8. If the DB lookup returns multiple hits, show the list and ask one targeted follow-up question that narrows the unresolved slot or requirement. Continue the conversation instead of picking arbitrarily.
-9. If the DB lookup returns zero hits, enter the **condition-relaxation loop**:
-   a. Identify which spec dimensions are encoded in the current skeleton. For example `CL32_106_O____` encodes size (`32` = 1210), capacitance (`106` = 10 uF), and voltage (`O` = 16 V).
-   b. Present these locked dimensions to the user and ask which one they would like to relax — expand upward, downward, or both. Phrase the options concretely:
-      - Size: "사이즈를 한 단계 키워 1812(43)로 검색할까요, 또는 줄여 0805(21)로 검색할까요?"
-      - Capacitance: "용량을 4.7 uF(475)로 낮추거나, 22 uF(226)로 올려 검색할까요?"
-      - Voltage: "전압을 25 V(A)로 올리거나, 10 V(P)로 낮춰 검색할까요?"
-   c. After the user picks a condition to change, rebuild the chip_prod_id skeleton with the new code and run `active_lineup_lookup` again.
-   d. If the retry also returns zero hits, repeat from (b) — offer further relaxation or a different dimension. If the user has already relaxed two or more dimensions without success, suggest broadening the search by using `%` wildcards or leaving more positions as `_`.
-   e. Once hits are found, continue from step 8 (multiple-hit narrowing) or step 10 (synthesis).
-10. Retrieve `caution_characteristics` only when the user asks for bias, frequency, impedance, or aging behavior. Use those chunks to define what still needs datasheet or measured-data validation.
-11. Synthesize the answer by separating:
-   - exact catalog matches
-   - closest catalog anchors
-   - recommended candidate skeletons
-   - current active-lineup hits from DB, when checked
-   - unresolved validation items
+1. 사용자 요청을 다음으로 분해한다.
+   - 하드 제약: 온도특성/유전체 코드, 정격전압, L/W/T 최대치, 편차, 명시된 패밀리/신뢰성 요구
+   - 소프트 제약: 적용처 힌트, 선호 기준용량, 패키징 선호, 앵커 근접성
+   - 검증 전용 제약: 바이어스/주파수 조건 유효용량, ESR/ESL, 리플, 정확 꼬리코드
+   - 활성 라인업 조회 트리거: 부분 요청, 모호 요청, 현재 유통 여부 질문, 카탈로그 추론 후에도 미해결 코드 위치 존재
+   - 인접기종 탐색 트리거: 인접/contiguous 모델 요청 시 `search_query_database`로 `public.mdh_contiguous_condition_view_dsgnagent` 대상 SQL 조회
+2. 검색 전 단위를 정규화한다.
+   - 길이 → `mm`
+   - 용량 → `uF` 및 E-series 코드 후보
+   - 전압 → `Vdc`
+   - 편차 표현(`M` 등) → 코드/퍼센트 병행 해석
+3. 먼저 `part_numbering` 근거를 조회해 온도특성/유전체, 전압, 용량, 편차, 사이즈, 두께 코드를 확정한다.
+4. 이어서 `product_family`, `reliability_level` 근거를 조회한다. 적용처 힌트로 Standard, High Level I/II, MFC, LSC, High Bending Strength, Low Acoustic Noise, Low ESL 중 우선순위를 정한다.
+5. 코드 매핑이 안정화된 뒤 `new_product` 앵커를 조회한다. 자유 추정보다 카탈로그 인접 예시를 우선한다.
+6. 카탈로그 근거로 하나 이상의 `후보 스켈레톤`을 구성한다. 요청이 불완전하면 알려진 코드 위치를 유지하고 미해결 1문자 슬롯을 `_`로 둔 `chip_prod_id 조회 패턴`도 함께 만든다.
+7. 활성 라인업 조회 도구가 있고 요청이 부분적/모호하거나 현재 유통 확인이 필요하면, 최종 답을 억지로 확정하기 전에 해당 패턴으로 조회한다.
+   - 인접기종 검색은 `search_query_database`를 사용하며, `public.mdh_contiguous_condition_view_dsgnagent`에 대해 `ILIKE` 기반 SQL SELECT를 작성한다.
+8. DB 조회 결과가 다건이면 목록을 제시하고, 미해결 슬롯/요구사항을 좁히는 **단일 후속 질문**을 한다. 임의 선택하지 않는다.
+9. DB 조회 결과가 0건이면 **조건 완화 루프**를 수행한다.
+   a. 현재 스켈레톤에 인코딩된 스펙 축을 식별한다. 예: `CL32_106_O____`는 사이즈(`32`=1210), 용량(`106`=10uF), 전압(`O`=16V)을 고정한다.
+   b. 고정된 축을 사용자에게 보여주고, 어떤 축을 상/하/양방향으로 완화할지 묻는다.
+      - 사이즈: `사이즈를 한 단계 키워 1812(43)로 검색할까요, 또는 줄여 0805(21)로 검색할까요?`
+      - 용량: `용량을 4.7uF(475)로 낮추거나, 22uF(226)로 올려 검색할까요?`
+      - 전압: `전압을 25V(A)로 올리거나, 10V(P)로 낮춰 검색할까요?`
+   c. 사용자가 변경 축을 선택하면 새 코드로 스켈레톤을 재구성하고 `active_lineup_lookup`을 재실행한다.
+   d. 재시도도 0건이면 (b)로 돌아가 추가 완화/축 변경을 제안한다. 이미 2개 이상 축을 완화했는데도 실패하면 `%` 와일드카드 확대 또는 `_` 확장을 제안한다.
+   e. 히트가 나오면 8단계(다건 축소) 또는 10단계(종합)로 진행한다.
+10. 사용자가 바이어스/주파수/임피던스/에이징 거동을 요청할 때만 `caution_characteristics`를 조회하고, 데이터시트/실측 검증 필요 항목을 명확히 남긴다.
+11. 최종 응답은 아래를 분리해 합성한다.
+   - 정확 카탈로그 매칭
+   - 근접 카탈로그 앵커
+   - 권장 후보 스켈레톤
+   - (조회 시) DB 활성 라인업 히트
+   - 미해결 검증 항목
 
-## Retrieval Rules
+## 검색 규칙
 
-- Search iteratively. Do not stop after one query.
-- Start broad enough to find the right chunk family, then tighten around size, temperature characteristic, voltage, and nominal capacitance.
-- Use bilingual and alias expansions when helpful, for example `X5R`, `A code`, `온도특성 A`, `0603`, `0201`, `High Level II`, `산업용`, `DC bias`, `직류 바이어스`.
-- If the requested nominal is not a standard catalog nominal, present the nearest standard candidates instead of silently snapping to one.
-- If no exact anchor exists, say so explicitly and keep the output at skeleton level.
-- If unresolved positions remain, transform the catalog skeleton into a DB lookup pattern and prefer an interactive narrowing step over a forced guess.
-- Use `_` for unknown single-character code positions in a `chip_prod_id` pattern. Use `%` only when the actual DB tool contract expects SQL-like wildcard matching over variable-length prefix or suffix.
-- Do not promise that you will run a DB lookup later. If the tool is available and the pattern is ready, run it in the current turn.
+- 반복/점진 검색을 수행하고, 단일 쿼리로 멈추지 않는다.
+- 초기에 충분히 넓게 검색해 청크 패밀리를 찾은 뒤 사이즈/온도특성/전압/기준용량으로 좁힌다.
+- 필요 시 이중언어/별칭 확장을 사용한다. 예: `X5R`, `A code`, `온도특성 A`, `0603`, `0201`, `High Level II`, `산업용`, `DC bias`, `직류 바이어스`.
+- 요청 기준용량이 표준 명목값이 아니면, 임의 스냅 대신 가장 가까운 표준 후보를 명시 제시한다.
+- 정확 앵커가 없으면 이를 명확히 말하고 스켈레톤 수준으로 제한한다.
+- 미해결 코드 위치가 있으면 카탈로그 스켈레톤을 DB 조회 패턴으로 변환하고, 강제 추정보다 대화형 축소를 우선한다.
+- `chip_prod_id` 패턴의 미지 1문자 슬롯은 `_`를 사용한다. 가변 길이 접두/접미 와일드카드는 DB 계약이 요구할 때만 `%`를 사용한다.
+- DB 조회를 나중으로 미루겠다고 약속하지 않는다. 도구가 있고 패턴이 준비되면 해당 턴에서 즉시 실행한다.
 
-## Response Contract
+## 응답 계약
 
-Structure the final answer in this order:
+최종 답변은 다음 순서를 유지한다.
 
 1. `constraints summary`
 2. `derived code mapping`
 3. `exact catalog matches`
 4. `closest catalog anchors`
 5. `recommended candidate skeletons`
-6. `active lineup hits from DB` when a `chip_prod_id` lookup was run
+6. (조회 시) `active lineup hits from DB`
 7. `needs datasheet or measured validation`
 
-For each recommended skeleton:
+권장 스켈레톤마다 다음을 포함한다.
 
-- explain which hard constraints it satisfies
-- explain which catalog anchor supports it
-- explain why it ranks above alternatives
-- list each unresolved item in concrete language
+- 만족한 하드 제약
+- 근거가 된 카탈로그 앵커
+- 대안 대비 우선순위 이유
+- 미해결 항목의 구체 목록
 
-For each DB lookup step:
+DB 조회 단계마다 다음을 포함한다.
 
-- show the pattern you searched
-- show the returned `chip_prod_id` list or count
-- explain what remains ambiguous
-- ask one focused follow-up question if multiple active hits remain
+- 조회 패턴
+- 반환된 `chip_prod_id` 목록/건수
+- 남은 모호성
+- 다건일 때 단일 포커스 후속 질문
 
-For each condition-relaxation step (zero-hit retry):
+조건 완화 단계(0건 재시도)마다 다음을 포함한다.
 
-- show the original pattern and confirm it returned 0 hits
-- list the locked dimensions with their current values and the nearest alternative codes in each direction (e.g., size up/down, capacitance up/down, voltage up/down)
-- ask the user which dimension to relax and in which direction
-- after rebuilding the skeleton, show the new pattern before querying again
+- 원본 패턴과 0건 결과 확인
+- 고정 축/현재값/각 방향 인접 대체 코드
+- 완화할 축과 방향 선택 질문
+- 재구성된 새 패턴(재조회 전)
 
-## Failure Handling
+## 실패 처리
 
-Use explicit guardrail language when evidence is incomplete:
+근거가 불완전할 때는 아래 가드레일 문구를 명시적으로 사용한다.
 
-- `No exact catalog match found; providing candidate skeletons only.`
-- `Catalog supports preselection, not final orderable P/N confirmation.`
-- `Exact tail codes and bias-effective capacitance require datasheet or measured-data validation.`
-- `Current DB hits were listed for the partial pattern, but additional constraints are needed before selecting one active product.`
-- `No current DB hits were found for the partial pattern; confirm whether any of the unresolved fields can change.`
+- `정확한 카탈로그 일치 항목이 없어 후보 스켈레톤만 제공합니다.`
+- `카탈로그 기반 사전 선정 결과이며 최종 주문 가능 P/N 확정이 아닙니다.`
+- `정확한 꼬리코드 및 바이어스 유효용량은 데이터시트/실측 검증이 필요합니다.`
+- `부분 패턴에 대한 현재 DB 히트는 제시했지만, 최종 1개 선택에는 추가 제약이 필요합니다.`
+- `부분 패턴에 대해 현재 DB 히트가 없습니다. 변경 가능한 미해결 필드를 확인해 주세요.`
 - `조건 완화 검색: [dimension]을(를) [old value] → [new value]로 변경하여 재검색합니다.`
 - `[N]개 조건을 완화했으나 여전히 0건입니다. 와일드카드를 넓히거나 추가 조건 변경이 필요합니다.`
 
-If the user asks for a guarantee that exceeds catalog evidence, refuse the guarantee and provide the strongest catalog-based preselection instead.
+사용자가 카탈로그 근거를 초과하는 보증을 요구하면 보증은 거절하고, 가능한 최강의 카탈로그 기반 사전선정안을 제시한다.
