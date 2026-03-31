@@ -40,7 +40,7 @@
 입력:
 
 - `lot_id`: string
-- `factors`: dict — {인자명: 값} 형태. 예: `{"유전체 두께": 3.2, "Cover 두께": 28}`
+- `factors`: dict — {인자명: 값} 형태. 예: `{"cast_dsgn_thk": 3.2, "cover_sheet_thk": 28}`
 
 출력:
 
@@ -62,28 +62,33 @@
 입력:
 
 - `lot_id`: string
-- `target_capacity`: float (uF)
-- `target_thickness`: float (mm)
-- `target_length`: float (mm)
-- `target_width`: float (mm)
-- `sheet_t`: list[float] (um)
-- `electrode_w`: list[float] (um)
-- `margin_l`: list[float] (um)
-- `margin_w`: list[float] (um)
-- `cover_t`: list[float] (um)
-- `electrode_count`: list[int] (EA)
+- `target_electrode_c_avg`: float — 타겟용량 (uF)
+- `target_grinding_l_avg`: float — 타겟 연마L사이즈 (mm)
+- `target_grinding_w_avg`: float — 타겟 연마W사이즈 (mm)
+- `target_grinding_t_avg`: float — 타겟 연마T사이즈 (mm)
+- `target_dc_cap`: float — 타겟DC용량 (uF)
+- `active_layer`: list[int] — 액티브 층수 (EA)
+- `ldn_avr_value`: list[float] — 레이다운 평균
+- `cast_dsgn_thk`: list[float] — Sheet T 두께 (um)
+- `screen_chip_size_leng`: list[float] — 스크린 길이 (um)
+- `screen_mrgn_leng`: list[float] — 스크린 마진 길이 (um)
+- `screen_chip_size_widh`: list[float] — 스크린 너비 (um)
+- `screen_mrgn_widh`: list[float] — 스크린 마진 너비 (um)
+- `cover_sheet_thk`: list[float] — 커버 두께 (um)
+- `total_cover_layer_num`: list[int] — 상+하 커버층수 (EA)
+- `gap_sheet_thk`: list[float] — 갭시트 두께 (um)
 
 ### params 값 형식
 
 **초기 실행 (DOE 탐색)**: 각 params 필드에 ref lot 값 중심 ±범위의 다중 포인트 리스트를 채운다.
 
-예시 — ref lot의 Sheet T = 5.0, 사용자가 ±5% 11포인트 요청:
-- `sheet_t`: `[4.75, 4.80, 4.85, 4.90, 4.95, 5.00, 5.05, 5.10, 5.15, 5.20, 5.25]`
+예시 — ref lot의 cast_dsgn_thk = 5.0, 사용자가 ±5% 11포인트 요청:
+- `cast_dsgn_thk`: `[4.75, 4.80, 4.85, 4.90, 4.95, 5.00, 5.05, 5.10, 5.15, 5.20, 5.25]`
 
 **재실행 (특정 후보 기반)**: 선택 후보의 설계값을 각각 단일 값 리스트 `[value]`로 구성한다.
 
-예시 — 3번 후보에서 Sheet T만 5.2로 변경:
-- `sheet_t`: `[5.2]`, `electrode_w`: `[690]`, ... (나머지는 3번 후보 값 그대로)
+예시 — 3번 후보에서 cast_dsgn_thk만 5.2로 변경:
+- `cast_dsgn_thk`: `[5.2]`, `active_layer`: `[158]`, ... (나머지는 3번 후보 값 그대로)
 
 출력:
 
@@ -96,12 +101,16 @@
 입력:
 
 - `lot_id`: string
-- `sheet_t`: float (um) — scalar, list가 아님
-- `electrode_w`: float (um)
-- `margin_l`: float (um)
-- `margin_w`: float (um)
-- `cover_t`: float (um)
-- `electrode_count`: int (EA)
+- `active_layer`: int — 액티브 층수 (EA), scalar, list가 아님
+- `ldn_avr_value`: float — 레이다운 평균
+- `cast_dsgn_thk`: float — Sheet T 두께 (um)
+- `screen_chip_size_leng`: float — 스크린 길이 (um)
+- `screen_mrgn_leng`: float — 스크린 마진 길이 (um)
+- `screen_chip_size_widh`: float — 스크린 너비 (um)
+- `screen_mrgn_widh`: float — 스크린 마진 너비 (um)
+- `cover_sheet_thk`: float — 커버 두께 (um)
+- `total_cover_layer_num`: int — 상+하 커버층수 (EA)
+- `gap_sheet_thk`: float — 갭시트 두께 (um)
 
 출력:
 
@@ -121,7 +130,7 @@
 
 입력:
 
-- `query`: 검증하려는 설계 항목 키워드. 예: `"공정검사표준 Sheet 두께 범위"`, `"검사표준 전극 폭 상한 하한"`
+- `query`: 검증하려는 설계 항목 키워드. 예: `"공정검사표준 cast_dsgn_thk 범위"`, `"검사표준 screen_mrgn_leng 상한 하한"`
 - `top_k`: 기본 3~5
 
 출력:

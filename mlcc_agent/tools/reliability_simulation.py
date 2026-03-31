@@ -12,12 +12,16 @@ import random
 
 def reliability_simulation(
     lot_id: str,
-    sheet_t: float,
-    electrode_w: float,
-    margin_l: float,
-    margin_w: float,
-    cover_t: float,
-    electrode_count: int,
+    active_layer: int,
+    ldn_avr_value: float,
+    cast_dsgn_thk: float,
+    screen_chip_size_leng: float,
+    screen_mrgn_leng: float,
+    screen_chip_size_widh: float,
+    screen_mrgn_widh: float,
+    cover_sheet_thk: float,
+    total_cover_layer_num: int,
+    gap_sheet_thk: float,
 ) -> dict:
     """Run reliability simulation for a single MLCC design point.
 
@@ -30,12 +34,16 @@ def reliability_simulation(
 
     Args:
         lot_id: Reference LOT identifier (must pass check_optimal_design first).
-        sheet_t: Sheet thickness in um.
-        electrode_w: Electrode width in um.
-        margin_l: Margin length in um.
-        margin_w: Margin width in um.
-        cover_t: Cover thickness in um.
-        electrode_count: Number of electrodes (EA).
+        active_layer: Active layer count (EA).
+        ldn_avr_value: Laydown average value.
+        cast_dsgn_thk: Sheet T thickness in um.
+        screen_chip_size_leng: Screen chip size length in um.
+        screen_mrgn_leng: Screen margin length in um.
+        screen_chip_size_widh: Screen chip size width in um.
+        screen_mrgn_widh: Screen margin width in um.
+        cover_sheet_thk: Cover sheet thickness in um.
+        total_cover_layer_num: Total cover layer number (upper+lower, EA).
+        gap_sheet_thk: Gap sheet thickness in um.
 
     Returns:
         A dict with:
@@ -45,31 +53,36 @@ def reliability_simulation(
         - reliability_pass_rate: float 0.0~1.0 (신뢰성 통과확률)
     """
     # Deterministic mock based on input hash
-    seed = hash((lot_id, sheet_t, electrode_w, margin_l, margin_w,
-                 cover_t, electrode_count)) % 2**32
+    seed = hash((lot_id, active_layer, ldn_avr_value, cast_dsgn_thk,
+                 screen_chip_size_leng, screen_mrgn_leng,
+                 screen_chip_size_widh, screen_mrgn_widh,
+                 cover_sheet_thk, total_cover_layer_num, gap_sheet_thk)) % 2**32
     random.seed(seed)
 
     # Mock: higher margin and cover thickness → better reliability
-    # This simulates realistic-ish behavior for testing
     base_rate = 0.70
-    margin_bonus = min((margin_l - 70) * 0.003, 0.10) if margin_l > 70 else -0.05
-    cover_bonus = min((cover_t - 25) * 0.005, 0.08) if cover_t > 25 else -0.05
-    electrode_penalty = max((electrode_count - 170) * 0.002, 0) if electrode_count > 170 else 0
+    margin_bonus = min((screen_mrgn_leng - 70) * 0.003, 0.10) if screen_mrgn_leng > 70 else -0.05
+    cover_bonus = min((cover_sheet_thk - 25) * 0.005, 0.08) if cover_sheet_thk > 25 else -0.05
+    layer_penalty = max((active_layer - 170) * 0.002, 0) if active_layer > 170 else 0
     noise = random.uniform(-0.03, 0.03)
 
-    pass_rate = base_rate + margin_bonus + cover_bonus - electrode_penalty + noise
+    pass_rate = base_rate + margin_bonus + cover_bonus - layer_penalty + noise
     pass_rate = max(0.0, min(1.0, pass_rate))
 
     return {
         "status": "success",
         "lot_id": lot_id,
         "design": {
-            "sheet_t": sheet_t,
-            "electrode_w": electrode_w,
-            "margin_l": margin_l,
-            "margin_w": margin_w,
-            "cover_t": cover_t,
-            "electrode_count": electrode_count,
+            "active_layer": active_layer,
+            "ldn_avr_value": ldn_avr_value,
+            "cast_dsgn_thk": cast_dsgn_thk,
+            "screen_chip_size_leng": screen_chip_size_leng,
+            "screen_mrgn_leng": screen_mrgn_leng,
+            "screen_chip_size_widh": screen_chip_size_widh,
+            "screen_mrgn_widh": screen_mrgn_widh,
+            "cover_sheet_thk": cover_sheet_thk,
+            "total_cover_layer_num": total_cover_layer_num,
+            "gap_sheet_thk": gap_sheet_thk,
         },
         "reliability_pass_rate": round(pass_rate, 4),
     }

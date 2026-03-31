@@ -25,7 +25,7 @@
 
 ### Example 2
 
-`reference lot 123456 기준으로 용량 10uF, thickness 0.8, L 1.6, W 0.8 타겟 맞추는 설계 추천해줘.`
+`reference lot 123456 기준으로 타겟용량 10uF, 타겟 연마T 0.8, 연마L 1.6, 연마W 0.8, DC용량 10.5uF 타겟 맞추는 설계 추천해줘.`
 
 기대 동작:
 
@@ -47,7 +47,7 @@
 
 ### Example 4
 
-`부족인자에 유전체 두께 3.2, Cover 두께 28, 유전상수 2600, Margin W 55 넣어줘.`
+`부족인자에 ldn_avr_value 3.0, cover_sheet_thk 28, gap_sheet_thk 1.2, screen_mrgn_widh 55 넣어줘.`
 
 기대 동작:
 
@@ -57,33 +57,33 @@
 
 ### Example 5
 
-`유전체 두께 3.2랑 Cover 두께 28만 먼저 넣어줘. 나머지는 좀 고민해볼게.`
+`ldn_avr_value 3.0이랑 cover_sheet_thk 28만 먼저 넣어줘. 나머지는 좀 고민해볼게.`
 
 기대 동작:
 
 - `update_lot_reference`로 2개만 반영
-- "유전상수, Margin W가 아직 비어있습니다. 준비되면 알려주세요." 안내
+- "gap_sheet_thk, screen_mrgn_widh가 아직 비어있습니다. 준비되면 알려주세요." 안내
 
 ## 재시뮬레이션
 
 ### Example 6
 
-`3번째 설계값에서 Sheet T만 5.2로 바꿔서 다시 시뮬레이션해줘.`
+`3번째 설계값에서 cast_dsgn_thk만 5.2로 바꿔서 다시 시뮬레이션해줘.`
 
 기대 동작:
 
 - 최신 top 5의 3번 후보를 base로 사용
-- `Sheet T=5.2`만 override, 나머지는 그대로
+- `cast_dsgn_thk=5.2`만 override, 나머지는 그대로
 - params를 각 항목 `[단일값]` 리스트로 구성
 - `optimal_design` 재호출 후 결과 제시
 
 ### Example 7
 
-`2번 후보는 그대로 두고 thickness target만 0.75로 바꿔서 다시 보고싶어.`
+`2번 후보는 그대로 두고 target_grinding_t_avg만 0.75로 바꿔서 다시 보고싶어.`
 
 기대 동작:
 
-- `target_thickness=0.75`로 수정
+- `target_grinding_t_avg=0.75`로 수정
 - params는 2번 후보 설계값 기반 단일값 리스트
 - 재실행
 
@@ -111,12 +111,12 @@
 
 ### Example 10
 
-`Cover T를 28, 30, 32로 바꿔가면서 신뢰성 비교해줘. 나머지는 3번 후보 기준.`
+`cover_sheet_thk를 28, 30, 32로 바꿔가면서 신뢰성 비교해줘. 나머지는 3번 후보 기준.`
 
 기대 동작:
 
 - 3번 후보의 설계값을 base로 사용
-- Cover T만 3가지로 바꿔서 `reliability_simulation` 3번 호출
+- cover_sheet_thk만 3가지로 바꿔서 `reliability_simulation` 3번 호출
 - 비교 테이블 제시
 
 ## 자율 반복 / 복합 요청
@@ -128,7 +128,7 @@
 기대 동작:
 
 1. 탐색 전략 수립 후 사용자에게 공유
-   - "핵심 파라미터(Cover T, Margin L)를 축으로 5~6가지 조합을 시도하겠습니다. 진행할까요?"
+   - "핵심 파라미터(cover_sheet_thk, screen_mrgn_leng)를 축으로 5~6가지 조합을 시도하겠습니다. 진행할까요?"
 2. 사용자 OK 후 `reliability_simulation` 반복 호출
 3. 중간 진행 상황 보고
 4. 비교 테이블 + 최종 추천 (근거 포함)
@@ -155,7 +155,7 @@
 - 비교 테이블 제시:
 
 ```
-| 후보 | Sheet T | Cover T | 전극수 | 예측용량 | 신뢰성 통과확률 |
+| 후보 | cast_dsgn_thk | cover_sheet_thk | active_layer | 예측용량 | 신뢰성 통과확률 |
 |---|---|---|---|---|---|
 | 1 | 5.0 | 30 | 162 | 10.12uF | 0.87 |
 | 2 | 5.2 | 28 | 158 | 10.05uF | 0.91 |
@@ -181,18 +181,18 @@ User prompt:
 ✅ 충족인자:
 | 인자 | 값 |
 |---|---|
-| Sheet 두께 | 4.8 um |
-| 전극 폭 | 670 um |
-| 전극 수 | 158 EA |
-| Margin L | 80 um |
+| cast_dsgn_thk (Sheet T 두께) | 4.8 um |
+| active_layer (액티브 층수) | 158 EA |
+| screen_mrgn_leng (스크린 마진 길이) | 80 um |
+| screen_chip_size_leng (스크린 길이) | 1550 um |
 
-❌ 부족인자: 유전체 두께, Cover 두께, 유전상수, Margin W
+❌ 부족인자: ldn_avr_value, cover_sheet_thk, gap_sheet_thk, screen_mrgn_widh
 
 부족인자에 원하시는 값을 알려주시면 반영하겠습니다. 또는 다른 lot_id로 교체할 수도 있습니다.
 
 ---
 
-User: `유전체 두께 3.2, Cover 두께 28, 유전상수 2600, Margin W 55`
+User: `ldn_avr_value 3.0, cover_sheet_thk 28, gap_sheet_thk 1.2, screen_mrgn_widh 55`
 
 ---
 
@@ -202,14 +202,14 @@ User: `유전체 두께 3.2, Cover 두께 28, 유전상수 2600, Margin W 55`
 
 | 인자 | 값 | 상태 |
 |---|---|---|
-| Sheet 두께 | 4.8 um | 기존 |
-| 전극 폭 | 670 um | 기존 |
-| 전극 수 | 158 EA | 기존 |
-| Margin L | 80 um | 기존 |
-| 유전체 두께 | 3.2 um | ✅ 반영 |
-| Cover 두께 | 28 um | ✅ 반영 |
-| 유전상수 | 2600 | ✅ 반영 |
-| Margin W | 55 um | ✅ 반영 |
+| cast_dsgn_thk (Sheet T 두께) | 4.8 um | 기존 |
+| active_layer (액티브 층수) | 158 EA | 기존 |
+| screen_mrgn_leng (스크린 마진 길이) | 80 um | 기존 |
+| screen_chip_size_leng (스크린 길이) | 1550 um | 기존 |
+| ldn_avr_value (레이다운 평균) | 3.0 | ✅ 반영 |
+| cover_sheet_thk (커버 두께) | 28 um | ✅ 반영 |
+| gap_sheet_thk (갭시트 두께) | 1.2 um | ✅ 반영 |
+| screen_mrgn_widh (스크린 마진 너비) | 55 um | ✅ 반영 |
 
 모든 인자가 채워졌습니다. 시뮬레이션을 진행할 수 있습니다. 최적설계(DOE)와 신뢰성 시뮬레이션 중 어느 것부터 하시겠습니까?
 
@@ -227,11 +227,11 @@ User prompt:
 
 top 5 후보 각각에 `reliability_simulation`을 실행해 통과확률을 비교하겠습니다.
 
-**[1/5]** 후보 1 (Sheet T=5.0, Cover T=30, 전극수=162) → 통과확률: 0.8723
-**[2/5]** 후보 2 (Sheet T=5.2, Cover T=28, 전극수=158) → 통과확률: 0.9134
-**[3/5]** 후보 3 (Sheet T=4.8, Cover T=32, 전극수=166) → 통과확률: 0.8201
-**[4/5]** 후보 4 (Sheet T=5.1, Cover T=30, 전극수=160) → 통과확률: 0.8512
-**[5/5]** 후보 5 (Sheet T=5.3, Cover T=25, 전극수=155) → 통과확률: 0.7834
+**[1/5]** 후보 1 (cast_dsgn_thk=5.0, cover_sheet_thk=30, active_layer=162) → 통과확률: 0.8723
+**[2/5]** 후보 2 (cast_dsgn_thk=5.2, cover_sheet_thk=28, active_layer=158) → 통과확률: 0.9134
+**[3/5]** 후보 3 (cast_dsgn_thk=4.8, cover_sheet_thk=32, active_layer=166) → 통과확률: 0.8201
+**[4/5]** 후보 4 (cast_dsgn_thk=5.1, cover_sheet_thk=30, active_layer=160) → 통과확률: 0.8512
+**[5/5]** 후보 5 (cast_dsgn_thk=5.3, cover_sheet_thk=25, active_layer=155) → 통과확률: 0.7834
 
 **종합 비교:**
 
@@ -241,7 +241,7 @@ top 5 후보 각각에 `reliability_simulation`을 실행해 통과확률을 비
 | 1 | 10.12uF | 0.8723 | ✅ |
 | 4 | 9.94uF | 0.8512 | ✅ |
 | 3 | 10.21uF | 0.8201 | ✅ |
-| 5 | 9.88uF | 0.7834 | ⚠️ Cover T 하한 경계 |
+| 5 | 9.88uF | 0.7834 | ⚠️ cover_sheet_thk 하한 경계 |
 
 **추천: 후보 2**
 - 신뢰성 통과확률 91.3%로 가장 높음

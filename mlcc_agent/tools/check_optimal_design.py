@@ -51,16 +51,16 @@ def check_optimal_design(tool_context: ToolContext, lot_id: str) -> dict:
     for ver_dict in require_columns:
         for version, required_cols in ver_dict.items():
             missing_cols = []
-            fulfilled_cols = []
-            
+            fulfilled_cols = {}
+
             for col in required_cols:
                 val = lot_detail.get(col)
-                
+
                 # None이거나 NaN인 경우 누락으로 처리
                 if val is None or (isinstance(val, float) and math.isnan(val)):
                     missing_cols.append(col)
                 else:
-                    fulfilled_cols.append(col)
+                    fulfilled_cols[col] = val
             
             missing_info[version] = missing_cols
             fulfilled_info[version] = fulfilled_cols

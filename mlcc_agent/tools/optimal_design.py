@@ -16,16 +16,21 @@ import random
 
 def optimal_design(
     lot_id: str,
-    target_capacity: float,
-    target_thickness: float,
-    target_length: float,
-    target_width: float,
-    sheet_t: list[float],
-    electrode_w: list[float],
-    margin_l: list[float],
-    margin_w: list[float],
-    cover_t: list[float],
-    electrode_count: list[int],
+    target_electrode_c_avg: float,
+    target_grinding_l_avg: float,
+    target_grinding_w_avg: float,
+    target_grinding_t_avg: float,
+    target_dc_cap: float,
+    active_layer: list[int],
+    ldn_avr_value: list[float],
+    cast_dsgn_thk: list[float],
+    screen_chip_size_leng: list[float],
+    screen_mrgn_leng: list[float],
+    screen_chip_size_widh: list[float],
+    screen_mrgn_widh: list[float],
+    cover_sheet_thk: list[float],
+    total_cover_layer_num: list[int],
+    gap_sheet_thk: list[float],
 ) -> dict:
     """Run DOE optimal design simulation.
 
@@ -38,70 +43,87 @@ def optimal_design(
 
     Args:
         lot_id: Reference LOT identifier (must pass check_optimal_design first).
-        target_capacity: Target capacitance in uF.
-        target_thickness: Target chip thickness in mm.
-        target_length: Target chip length in mm.
-        target_width: Target chip width in mm.
-        sheet_t: Sheet thickness values in um (list).
-        electrode_w: Electrode width values in um (list).
-        margin_l: Margin length values in um (list).
-        margin_w: Margin width values in um (list).
-        cover_t: Cover thickness values in um (list).
-        electrode_count: Number of electrodes values in EA (list).
+        target_electrode_c_avg: Target electrode capacitance average (uF).
+        target_grinding_l_avg: Target grinding L size average (mm).
+        target_grinding_w_avg: Target grinding W size average (mm).
+        target_grinding_t_avg: Target grinding T size average (mm).
+        target_dc_cap: Target DC capacitance (uF).
+        active_layer: Active layer count values (EA, list).
+        ldn_avr_value: Laydown average values (list).
+        cast_dsgn_thk: Sheet T thickness values in um (list).
+        screen_chip_size_leng: Screen chip size length values in um (list).
+        screen_mrgn_leng: Screen margin length values in um (list).
+        screen_chip_size_widh: Screen chip size width values in um (list).
+        screen_mrgn_widh: Screen margin width values in um (list).
+        cover_sheet_thk: Cover sheet thickness values in um (list).
+        total_cover_layer_num: Total cover layer number (upper+lower) values (EA, list).
+        gap_sheet_thk: Gap sheet thickness values in um (list).
 
     Returns:
         A dict with 'status', 'lot_id', 'targets', and 'top_candidates'.
         Each candidate contains design values and predicted performance.
     """
     # Use center values as seed for reproducibility
-    center_st = sheet_t[len(sheet_t) // 2]
-    center_ec = electrode_count[len(electrode_count) // 2]
-    random.seed(hash((lot_id, target_capacity, center_st, center_ec)) % 2**32)
+    center_cast = cast_dsgn_thk[len(cast_dsgn_thk) // 2]
+    center_active = active_layer[len(active_layer) // 2]
+    random.seed(hash((lot_id, target_electrode_c_avg, center_cast, center_active)) % 2**32)
 
     candidates = []
     for rank in range(1, 6):
         # Pick from the provided parameter ranges
-        st = random.choice(sheet_t) + random.uniform(-0.1, 0.1)
-        ew = random.choice(electrode_w) + random.uniform(-5, 5)
-        ml = random.choice(margin_l) + random.uniform(-2, 2)
-        mw = random.choice(margin_w) + random.uniform(-2, 2)
-        ct = random.choice(cover_t) + random.uniform(-1, 1)
-        ec = random.choice(electrode_count) + random.randint(-2, 2)
+        al = random.choice(active_layer) + random.randint(-2, 2)
+        lav = random.choice(ldn_avr_value) + random.uniform(-0.05, 0.05)
+        cdt = random.choice(cast_dsgn_thk) + random.uniform(-0.1, 0.1)
+        scsl = random.choice(screen_chip_size_leng) + random.uniform(-5, 5)
+        sml = random.choice(screen_mrgn_leng) + random.uniform(-2, 2)
+        scsw = random.choice(screen_chip_size_widh) + random.uniform(-5, 5)
+        smw = random.choice(screen_mrgn_widh) + random.uniform(-2, 2)
+        cst = random.choice(cover_sheet_thk) + random.uniform(-1, 1)
+        tcln = random.choice(total_cover_layer_num) + random.randint(-1, 1)
+        gst = random.choice(gap_sheet_thk) + random.uniform(-0.5, 0.5)
 
-        pred_cap = target_capacity * random.uniform(0.97, 1.04)
-        pred_thick = target_thickness * random.uniform(0.98, 1.02)
-        pred_length = target_length * random.uniform(0.99, 1.01)
-        pred_width = target_width * random.uniform(0.99, 1.01)
+        pred_electrode_c = target_electrode_c_avg * random.uniform(0.97, 1.04)
+        pred_grinding_l = target_grinding_l_avg * random.uniform(0.98, 1.02)
+        pred_grinding_w = target_grinding_w_avg * random.uniform(0.99, 1.01)
+        pred_grinding_t = target_grinding_t_avg * random.uniform(0.98, 1.02)
+        pred_dc_cap = target_dc_cap * random.uniform(0.97, 1.04)
 
         candidates.append({
             "rank": rank,
             "design": {
-                "sheet_t": round(st, 2),
-                "electrode_w": round(ew, 1),
-                "margin_l": round(ml, 1),
-                "margin_w": round(mw, 1),
-                "cover_t": round(ct, 1),
-                "electrode_count": ec,
+                "active_layer": al,
+                "ldn_avr_value": round(lav, 3),
+                "cast_dsgn_thk": round(cdt, 2),
+                "screen_chip_size_leng": round(scsl, 1),
+                "screen_mrgn_leng": round(sml, 1),
+                "screen_chip_size_widh": round(scsw, 1),
+                "screen_mrgn_widh": round(smw, 1),
+                "cover_sheet_thk": round(cst, 1),
+                "total_cover_layer_num": tcln,
+                "gap_sheet_thk": round(gst, 2),
             },
             "predicted": {
-                "capacity_uF": round(pred_cap, 3),
-                "thickness_mm": round(pred_thick, 4),
-                "length_mm": round(pred_length, 4),
-                "width_mm": round(pred_width, 4),
+                "electrode_c_avg": round(pred_electrode_c, 3),
+                "grinding_l_avg": round(pred_grinding_l, 4),
+                "grinding_w_avg": round(pred_grinding_w, 4),
+                "grinding_t_avg": round(pred_grinding_t, 4),
+                "dc_cap": round(pred_dc_cap, 3),
             },
             "gap": {
-                "capacity_delta_uF": round(pred_cap - target_capacity, 3),
-                "thickness_delta_mm": round(pred_thick - target_thickness, 4),
-                "length_delta_mm": round(pred_length - target_length, 4),
-                "width_delta_mm": round(pred_width - target_width, 4),
+                "electrode_c_avg_delta": round(pred_electrode_c - target_electrode_c_avg, 3),
+                "grinding_l_avg_delta": round(pred_grinding_l - target_grinding_l_avg, 4),
+                "grinding_w_avg_delta": round(pred_grinding_w - target_grinding_w_avg, 4),
+                "grinding_t_avg_delta": round(pred_grinding_t - target_grinding_t_avg, 4),
+                "dc_cap_delta": round(pred_dc_cap - target_dc_cap, 3),
             },
         })
 
-    # Sort by combined gap (capacity weight higher)
+    # Sort by combined gap (capacity weights higher)
     candidates.sort(
         key=lambda c: (
-            abs(c["gap"]["capacity_delta_uF"]) * 2
-            + abs(c["gap"]["thickness_delta_mm"]) * 10
+            abs(c["gap"]["electrode_c_avg_delta"]) * 2
+            + abs(c["gap"]["grinding_t_avg_delta"]) * 10
+            + abs(c["gap"]["dc_cap_delta"]) * 2
         )
     )
     for i, c in enumerate(candidates, 1):
@@ -111,10 +133,11 @@ def optimal_design(
         "status": "success",
         "lot_id": lot_id,
         "targets": {
-            "capacity_uF": target_capacity,
-            "thickness_mm": target_thickness,
-            "length_mm": target_length,
-            "width_mm": target_width,
+            "target_electrode_c_avg": target_electrode_c_avg,
+            "target_grinding_l_avg": target_grinding_l_avg,
+            "target_grinding_w_avg": target_grinding_w_avg,
+            "target_grinding_t_avg": target_grinding_t_avg,
+            "target_dc_cap": target_dc_cap,
         },
         "top_candidates": candidates,
     }
