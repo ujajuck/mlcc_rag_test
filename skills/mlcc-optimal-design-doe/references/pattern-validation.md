@@ -8,7 +8,18 @@
 
 사용자가 lot_id를 제공하지 않았으면 먼저 요청한다.
 
-### 2. check_optimal_design 실행
+### 2. get_first_lot_detail 실행 (설계정보 로드)
+
+lot_id가 확보되면 가장 먼저 `get_first_lot_detail`을 호출하여 해당 lot의 설계정보를 DB에서 조회하고 세션 state에 저장한다.
+
+```
+get_first_lot_detail(lot_id="AKB45A2")
+```
+
+- `status: "success"` → ref lot 설계정보가 state에 저장됨. 다음 단계로 진행.
+- `status: "error"` → DB에 해당 lot이 없음. 사용자에게 다른 lot_id를 요청한다.
+
+### 3. check_optimal_design 실행
 
 ```
 check_optimal_design(lot_id="AKB45A2")
@@ -23,7 +34,7 @@ check_optimal_design(lot_id="AKB45A2")
 }
 ```
 
-### 3. 결과 해석
+### 4. 결과 해석
 
 **부족인자가 없으면**: 바로 시뮬레이션 진행 가능. 다음 패턴(최적설계 또는 신뢰성)으로 넘어간다.
 
@@ -50,7 +61,7 @@ reference LOT AKB45A2 검증 결과:
 또는 다른 lot_id로 교체할 수도 있습니다.
 ```
 
-### 4. 부족인자 값 반영
+### 5. 부족인자 값 반영
 
 사용자가 값을 제공하면 `update_lot_reference`를 호출한다.
 
@@ -64,7 +75,7 @@ update_lot_reference(
 반환에서 `remaining_부족인자`가 비어있으면 시뮬레이션 진행 가능.
 아직 남아있으면 남은 인자를 다시 요청한다.
 
-### 5. 부분 입력 허용
+### 6. 부분 입력 허용
 
 사용자가 일부만 제공해도 된다. 예: "ldn_avr_value 3.0, cover_sheet_thk 28만 먼저 넣어줘"
 → 나머지(gap_sheet_thk, screen_mrgn_widh)는 다음 턴에 받으면 된다.

@@ -9,17 +9,18 @@ Reference LOT을 기준으로 최적설계(DOE)와 신뢰성 시뮬레이션을 
 
 필요할 때 아래 reference를 읽는다.
 
-- `references/tool-contracts.md`: 5개 tool의 입출력 계약
+- `references/tool-contracts.md`: 6개 tool의 입출력 계약
 - `references/pattern-validation.md`: LOT 검증 + 부족인자 보충 패턴
 - `references/pattern-optimal.md`: 최적설계 DOE 패턴
 - `references/pattern-reliability.md`: 신뢰성 시뮬레이션 패턴
-- `references/pattern-autonomous.md`: 자율 반복/비교/추천 패턴
+- `references/pattern-autonomous.md`: 자율 반복/비교/추천 패턴 (단일 목표)
+- `references/pattern-convergence.md`: 수렴 탐색 패턴 (타겟 + 신뢰성 동시 만족)
 - `references/prompt-examples.md`: 한국어 사용자 질의와 응답 패턴
 
 ## 핵심 원칙
 
 - `lot_id`가 없으면 가장 먼저 요청한다.
-- 새 `lot_id`가 들어오면 반드시 `check_optimal_design`을 먼저 호출한다.
+- 새 `lot_id`가 들어오면 반드시 `get_first_lot_detail`로 설계정보를 state에 로드한 뒤, `check_optimal_design`을 호출한다.
 - `부족인자`가 있으면 사용자에게 값을 받아 `update_lot_reference`로 채울 수 있다. 무조건 다른 lot을 요구하지 않는다.
 - `optimal_design`의 params는 **list** 형태다. DOE 탐색은 다중 포인트 리스트, 재실행은 단일 값 `[value]` 리스트.
 - `reliability_simulation`은 **단일 설계값(scalar)**만 받는다. optimal_design과 다르다.
@@ -40,14 +41,16 @@ Reference LOT을 기준으로 최적설계(DOE)와 신뢰성 시뮬레이션을 
 | "후보 3번으로 신뢰성 돌려봐" | 신뢰성 패턴 (기존 후보 활용) |
 | "여러번 돌려보고 제일 좋은거 추천해줘" | 검증 → 자율 반복 패턴 |
 | "신뢰성 좋은걸로 최적설계 돌려줘" | 검증 → 신뢰성 → 최적설계 (체이닝) |
+| "타겟 맞추면서 신뢰성도 확보해줘" / "둘 다 만족하는 설계 찾아줘" | 검증 → **수렴 탐색 패턴** |
 
 각 패턴의 상세 흐름은 해당 reference 문서에 있다. 아래는 패턴별 요약이다.
 
 ### 검증 패턴 (references/pattern-validation.md)
 
-1. `check_optimal_design(lot_id)` → 충족/부족인자 확인
-2. 부족인자가 있으면 사용자에게 값을 받아 `update_lot_reference`로 반영
-3. 모든 인자가 채워지면 시뮬레이션 진행 가능
+1. `get_first_lot_detail(lot_id)` → ref lot 설계정보를 state에 로드
+2. `check_optimal_design(lot_id)` → 충족/부족인자 확인
+3. 부족인자가 있으면 사용자에게 값을 받아 `update_lot_reference`로 반영
+4. 모든 인자가 채워지면 시뮬레이션 진행 가능
 
 ### 최적설계 패턴 (references/pattern-optimal.md)
 
@@ -65,7 +68,11 @@ Reference LOT을 기준으로 최적설계(DOE)와 신뢰성 시뮬레이션을 
 
 ### 자율 반복 패턴 (references/pattern-autonomous.md)
 
-사용자가 "알아서 돌려보고 추천해줘" 류의 복합 요청을 하면, 모델이 스스로 탐색 전략을 세우고 tool을 반복 호출해 최적 조건을 찾는다. 최적설계와 신뢰성을 자유롭게 조합할 수 있다.
+단일 목표 최적화 또는 단순 비교 요청에 사용한다. "신뢰성 좋은 설계 찾아줘", "여러 조건 비교해줘" 등. 최적설계와 신뢰성을 자유롭게 조합할 수 있다.
+
+### 수렴 탐색 패턴 (references/pattern-convergence.md)
+
+사용자가 **타겟 적중 + 신뢰성 통과를 동시에** 요구하면 이 패턴을 사용한다. 4-Phase 체계(감도 분석 → 실현 가능 영역 탐색 → 타겟 수렴 → 최종 검증)로 설계값을 조정하며, 파라미터 조정 룰 테이블에 따라 전문가 수준으로 수렴해 나간다.
 
 ## 대화 규칙
 
