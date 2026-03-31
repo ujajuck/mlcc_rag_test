@@ -1,9 +1,10 @@
 # Tool Contracts
 
-이 reference는 설계 시뮬레이션 skill이 의존하는 5개 tool의 계약을 설명한다.
+이 reference는 설계 시뮬레이션 skill이 의존하는 6개 tool의 계약을 설명한다.
 
 ## Contents
 
+- get_first_lot_detail
 - check_optimal_design
 - update_lot_reference
 - optimal_design
@@ -11,9 +12,30 @@
 - search_rag (공정검사표준 검증용)
 - 공통 해석 규칙
 
+## get_first_lot_detail
+
+목적: ref lot으로 선정된 LOT의 설계정보를 DB에서 조회하여 세션 state에 저장한다. 이후 `check_optimal_design` 등 다른 tool이 이 state를 참조한다.
+
+입력:
+
+- `lot_id`: string
+
+출력:
+
+- `status`: "success" 또는 "error"
+- `ref_lot_design_info`: lot의 주요 설계 컬럼 정보 (chip_prod_id, lot_id, cur_site_div, electrode_c_avg, app_type, active_powder_base, ldn_cv_value, cast_dsgn_thk 등)
+- `hint`: 다음 단계 안내 메시지
+
+사용 규칙:
+
+- 새 `lot_id`가 들어오면 **가장 먼저** 호출한다. `check_optimal_design`보다 앞선다.
+- 이 tool이 state에 lot 데이터를 저장해야 `check_optimal_design`이 정상 동작한다.
+- `status: "error"`이면 해당 lot이 DB에 없는 것이므로 다른 lot_id를 요청한다.
+- 동일 lot_id로 이미 호출한 경우 중복 호출할 필요 없다.
+
 ## check_optimal_design
 
-목적: 주어진 `lot_id`가 시뮬레이션 기준 reference로 사용 가능한지 확인한다.
+목적: 주어진 `lot_id`가 시뮬레이션 기준 reference로 사용 가능한지 확인한다. `get_first_lot_detail`이 선행되어야 한다.
 
 입력:
 
@@ -27,7 +49,7 @@
 
 사용 규칙:
 
-- 새 `lot_id`가 들어오면 가장 먼저 호출한다.
+- `get_first_lot_detail` 이후에 호출한다. state에 lot 데이터가 없으면 에러를 반환한다.
 - `부족인자`가 있으면 두 가지 선택지를 제시한다:
   1. 사용자가 값을 직접 제공 → `update_lot_reference`로 반영
   2. 다른 `lot_id`로 교체

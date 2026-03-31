@@ -19,7 +19,8 @@
 
 기대 동작:
 
-- 먼저 `check_optimal_design` 실행
+- 먼저 `get_first_lot_detail`로 설계정보를 state에 로드
+- `check_optimal_design` 실행
 - 부족인자가 없으면 `targets.*`와 `params.*`를 수집
 - `optimal_design` 실행 후 공정검사표준 검증 후 top 5 제시
 
@@ -29,7 +30,8 @@
 
 기대 동작:
 
-- `lot_id` 검증
+- `get_first_lot_detail`로 설계정보 로드
+- `check_optimal_design`으로 `lot_id` 검증
 - 주어진 값은 `targets.*`에 채움
 - 빠진 `params.*`만 질문
 
@@ -41,7 +43,7 @@
 
 기대 동작:
 
-- `check_optimal_design`만 먼저 실행
+- `get_first_lot_detail`로 설계정보 로드 후 `check_optimal_design` 실행
 - `충족인자`(값 포함), `부족인자`를 분리해서 보여줌
 - 부족인자가 있으면 값을 채울지 다른 lot을 쓸지 묻는다
 
@@ -119,6 +121,40 @@
 - cover_sheet_thk만 3가지로 바꿔서 `reliability_simulation` 3번 호출
 - 비교 테이블 제시
 
+## 수렴 탐색 (타겟 + 신뢰성 동시 만족)
+
+### Example 14
+
+`용량 10uF, 연마T 0.85mm 맞추면서 신뢰성 80% 이상 나오는 설계 찾아줘.`
+
+기대 동작:
+
+1. **수렴 탐색 패턴** 적용 (pattern-convergence)
+2. Phase 1: 넓은 DOE → top 5 + 신뢰성 → 감도 분석
+3. Phase 2: 신뢰성 핵심 축 스윕 → 실현 가능 영역 확보
+4. Phase 3: 실현 가능 영역 내 DOE → gap 기반 파라미터 조정 → 수렴
+5. Phase 4: 최종 검증 + 추천
+
+### Example 15
+
+`타겟 맞추면서 신뢰성도 확보해줘. 알아서 찾아봐.`
+
+기대 동작:
+
+1. targets와 신뢰성 기준 확인 (미지정 시 기본값 제안: 신뢰성 ≥80%, gap 허용 ±5%)
+2. 사용자 컨펌 후 수렴 탐색 Phase 1부터 진행
+3. 각 Phase 전환 시 중간 결과 보고
+
+### Example 16
+
+`지금 후보에서 신뢰성이 떨어지는데, 타겟 유지하면서 개선해줘.`
+
+기대 동작:
+
+1. 기존 후보를 base로 Phase 3부터 시작
+2. 파라미터 조정 룰 테이블에 따라 신뢰성 핵심 축(cover_sheet_thk, screen_mrgn_leng) 증가 방향으로 조정
+3. 타겟 gap 확인하면서 수렴
+
 ## 자율 반복 / 복합 요청
 
 ### Example 11
@@ -174,7 +210,11 @@ User prompt:
 
 ---
 
-**Step 1: Reference 검증**
+**Step 1: 설계정보 로드**
+
+`get_first_lot_detail(lot_id="AKB45A2")` → status: success. ref lot 설계정보가 state에 저장되었습니다.
+
+**Step 2: Reference 검증**
 
 `check_optimal_design(lot_id="AKB45A2")` 실행 결과:
 
@@ -196,7 +236,7 @@ User: `ldn_avr_value 3.0, cover_sheet_thk 28, gap_sheet_thk 1.2, screen_mrgn_wid
 
 ---
 
-**Step 2: 부족인자 반영**
+**Step 3: 부족인자 반영**
 
 `update_lot_reference(lot_id="AKB45A2", factors={...})` 실행 결과:
 
