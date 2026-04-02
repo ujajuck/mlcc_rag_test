@@ -1,76 +1,76 @@
-# Active Lineup Lookup
+# 활성 라인업 조회
 
-Use this reference when a request is partial, ambiguous, or requires checking whether a matching product is currently flowing in the internal DB, or when you need to find contiguous (adjacent) models.
+요청이 부분적이거나 모호한 경우, 또는 일치하는 제품이 내부 DB에 현재 유통 중인지 확인해야 할 때, 또는 인접기종을 찾아야 할 때 이 reference를 참조한다.
 
-## Contents
+## 목차
 
-- Purpose
-- When to Invoke the DB Lookup
-- Tool Contract (active_lineup_lookup)
-- Tool Contract (search_query_database) – Contiguous / Adjacent Model Search
-- Pattern Construction
-- Result Handling
-- Follow-up Question Strategy
-- Output Template
+- 목적
+- DB 조회 실행 시점
+- 도구 계약 (active_lineup_lookup)
+- 도구 계약 (search_query_database) — 인접기종 검색
+- 패턴 구성
+- 결과 처리
+- 후속 질문 전략
+- 출력 템플릿
 
-## Purpose
+## 목적
 
-The catalog tells you what is electrically plausible and how the code system works. The DB lookup tells you whether matching `chip_prod_id` rows exist in the production views right now.
+카탈로그는 전기적으로 타당한 조합과 코드 체계를 알려준다. DB 조회는 일치하는 `chip_prod_id` 행이 현재 생산 뷰에 존재하는지를 알려준다.
 
-Use the data sources together:
+데이터 소스를 함께 사용한다:
 
-- `search_rag` for code interpretation, family logic, thickness logic, and catalog anchors
-- `active_lineup_lookup` for simple pattern-based current `chip_prod_id` matches from `mdh_continous_view_3`
-- `search_query_database` for flexible SQL-based search against `public.mdh_contiguous_condition_view_dsgnagent` – especially useful for **contiguous / adjacent model** discovery
+- `search_rag`: 코드 해석, 패밀리 로직, 두께 로직, 카탈로그 앵커
+- `active_lineup_lookup`: `mdh_continous_view_3`에서 단순 패턴 기반 현행 `chip_prod_id` 매칭
+- `search_query_database`: `public.mdh_contiguous_condition_view_dsgnagent`에 대한 유연한 SQL 기반 검색 — 특히 **인접기종** 탐색에 유용
 
-## When to Invoke the DB Lookup
+## DB 조회 실행 시점
 
-Invoke the DB lookup when any of these are true:
+아래 조건 중 하나라도 해당하면 DB 조회를 실행한다:
 
-- the user gives only part of the code or only part of the electrical constraints
-- unresolved code slots remain after catalog reasoning
-- the user asks whether such a chip is currently flowing
-- multiple catalog-feasible skeletons remain and you need to show active candidates before asking the next question
+- 사용자가 코드의 일부만 제공하거나 전기적 제약의 일부만 제공한 경우
+- 카탈로그 추론 후에도 미해결 코드 슬롯이 남아있는 경우
+- 사용자가 해당 칩이 현재 유통 중인지 질문한 경우
+- 카탈로그상 가능한 스켈레톤이 복수이고, 다음 질문 전에 활성 후보를 보여줘야 하는 경우
 
-Do not wait for a perfect full code if a useful partial pattern already exists.
-Do not tell the user that you will check the DB in a future turn if the tool is already available now.
+유용한 부분 패턴이 이미 있으면 완벽한 전체 코드를 기다리지 않는다.
+도구가 이미 사용 가능한데 다음 턴에서 DB를 확인하겠다고 약속하지 않는다.
 
-## Tool Contract (active_lineup_lookup)
+## 도구 계약 (active_lineup_lookup)
 
-The skill assumes an active-lineup function tool exists with a flat input schema.
+이 스킬은 flat 입력 스키마를 가진 활성 라인업 function tool이 있다고 가정한다.
 
-Preferred contract:
+권장 계약:
 
-- input parameter: `chip_prod_id`
-- type: `string`
-- output: list of matching rows or at least a list of matching `chip_prod_id` values
+- 입력 파라미터: `chip_prod_id`
+- 타입: `string`
+- 출력: 일치하는 행 목록 또는 최소한 일치하는 `chip_prod_id` 값 목록
 
-Recommended behavior for the tool description:
+도구 설명에 권장되는 내용:
 
-- state that the tool searches `mdh_continous_view_3`
-- state that it matches against the `chip_prod_id` column
-- state whether `chip_prod_id` should be passed as a raw code fragment or as a SQL-like wildcard pattern
-- state what the returned list contains
+- `mdh_continous_view_3`를 검색한다고 명시
+- `chip_prod_id` 컬럼에 대해 매칭한다고 명시
+- `chip_prod_id`를 원시 코드 조각으로 전달할지 SQL 스타일 와일드카드 패턴으로 전달할지 명시
+- 반환 목록에 무엇이 포함되는지 명시
 
-Preferred schema style:
+권장 스키마 스타일:
 
-- keep the tool flat with one top-level string argument
-- avoid nested filter objects unless the implementation truly requires them
+- 최상위 string 인자 1개로 flat하게 유지
+- 실제 구현이 요구하지 않는 한 중첩 필터 객체를 피함
 
-If the actual tool name differs, use the function whose description explicitly says it searches `chip_prod_id`.
+실제 도구 이름이 다르면, 설명에 `chip_prod_id`를 검색한다고 명시된 function을 사용한다.
 
-## Tool Contract (search_query_database) – Contiguous / Adjacent Model Search
+## 도구 계약 (search_query_database) — 인접기종 검색
 
-Use `search_query_database` when you need to **find contiguous (adjacent) models** or run more flexible queries than a simple pattern match.
+**인접기종(contiguous/adjacent model)을 찾거나** 단순 패턴 매칭보다 유연한 쿼리가 필요할 때 `search_query_database`를 사용한다.
 
-Target table: `public.mdh_contiguous_condition_view_dsgnagent`
+대상 테이블: `public.mdh_contiguous_condition_view_dsgnagent`
 
-### Input
+### 입력
 
-- parameter: `query`
-- type: `string` – a full SQL SELECT statement
+- 파라미터: `query`
+- 타입: `string` — 완전한 SQL SELECT 문
 
-### Typical Query
+### 일반적인 쿼리
 
 ```sql
 SELECT chip_prod_id
@@ -78,32 +78,32 @@ FROM public.mdh_contiguous_condition_view_dsgnagent
 WHERE chip_prod_id ILIKE '%CL32%106%O%'
 ```
 
-### Query Construction Rules
+### 쿼리 작성 규칙
 
-1. Always use `SELECT` – the tool rejects INSERT / UPDATE / DELETE.
-2. Use `ILIKE` for case-insensitive pattern matching with `%` wildcards.
-3. Use `_` for single-character wildcards within `ILIKE`.
-4. You can combine multiple `WHERE` conditions with `AND` / `OR`.
-5. You can select specific columns or use `*`.
+1. 항상 `SELECT`를 사용한다 — 도구는 INSERT / UPDATE / DELETE를 거부한다.
+2. 대소문자 무시 패턴 매칭에 `ILIKE`와 `%` 와일드카드를 사용한다.
+3. `ILIKE` 내에서 단일 문자 와일드카드로 `_`를 사용한다.
+4. `AND` / `OR`로 여러 `WHERE` 조건을 결합할 수 있다.
+5. 특정 컬럼을 선택하거나 `*`를 사용할 수 있다.
 
-### When to Prefer search_query_database over active_lineup_lookup
+### active_lineup_lookup 대신 search_query_database를 선호하는 경우
 
-- When searching for **contiguous / adjacent models** (인접기종)
-- When you need more complex filtering (e.g., combining multiple conditions)
-- When you need to run custom SQL logic beyond simple pattern matching
-- When searching against the `mdh_contiguous_condition_view_dsgnagent` view specifically
+- **인접기종**을 검색할 때
+- 더 복잡한 필터링이 필요할 때 (예: 여러 조건 결합)
+- 단순 패턴 매칭을 넘어서는 커스텀 SQL 로직이 필요할 때
+- `mdh_contiguous_condition_view_dsgnagent` 뷰를 대상으로 검색할 때
 
-### Output
+### 출력
 
-Returns a dict with:
-- `status`: "success" or "error"
-- `query`: the SQL that was executed
-- `row_count`: number of matching rows
-- `rows`: list of dicts, each containing the selected column values
+다음을 포함하는 dict를 반환한다:
+- `status`: "success" 또는 "error"
+- `query`: 실행된 SQL
+- `row_count`: 일치 행 수
+- `rows`: 선택된 컬럼 값을 포함하는 dict의 list
 
-### Example Usage for Adjacent Model Search
+### 인접기종 검색 사용 예시
 
-User asks: "CL32A106 인접기종 찾아줘"
+사용자: "CL32A106 인접기종 찾아줘"
 
 ```sql
 SELECT chip_prod_id
@@ -111,100 +111,100 @@ FROM public.mdh_contiguous_condition_view_dsgnagent
 WHERE chip_prod_id ILIKE 'CL32_106%'
 ```
 
-This returns all contiguous models sharing the same size (32), capacitance (106), but varying in 온도특성, tolerance, voltage, and tail codes.
+이 쿼리는 동일 사이즈(32)와 용량(106)을 공유하지만 온도특성, 편차, 전압, tail 코드가 다른 모든 인접 모델을 반환한다.
 
-## Pattern Construction
+## 패턴 구성
 
-Build two related artifacts:
+관련된 두 가지 산출물을 만든다:
 
-1. `candidate skeleton`
-   - human-readable catalog reasoning form
-   - examples: `CL03A515MR3?N?#`, `CL32[X5R TBD]106[tol TBD]O[...]`
-2. `chip_prod_id lookup pattern`
-   - DB-facing form for the lookup tool
-   - preserve known literal code positions
-   - use `_` for each unknown single-character slot
-   - use `%` only when the tool expects SQL-style variable-length matching
+1. `후보 스켈레톤`
+   - 사람이 읽을 수 있는 카탈로그 추론 형태
+   - 예시: `CL03A515MR3?N?#`, `CL32[X5R TBD]106[편차 TBD]O[...]`
+2. `chip_prod_id 조회 패턴`
+   - DB 조회 도구용 형태
+   - 알려진 리터럴 코드 위치를 유지
+   - 미지 1문자 슬롯마다 `_` 사용
+   - 도구가 SQL 스타일 가변 길이 매칭을 요구할 때만 `%` 사용
 
-Rules:
+규칙:
 
-- preserve `CL` and known size code
-- preserve known temperature-characteristic, capacitance, tolerance, voltage, and thickness codes
-- replace each unresolved single-character position with `_`
-- if the remainder length is uncertain or the backend expects contains search, wrap with `%` as the actual tool contract requires
+- `CL`과 알려진 사이즈 코드를 유지
+- 알려진 온도특성, 용량, 편차, 전압, 두께 코드를 유지
+- 미해결 1문자 위치마다 `_`로 대체
+- 나머지 길이가 불확실하거나 백엔드가 contains 검색을 요구하면, 실제 도구 계약에 따라 `%`로 감싼다
 
-Examples:
+예시:
 
-- catalog reasoning says `size=32`, `capacitance=106`, `voltage=O`, but temperature characteristic and several tail fields are unresolved
-  - human skeleton: `CL32[TCC TBD]106[TOL TBD]O[...]`
-  - DB lookup pattern if the tool accepts fixed-length pattern: `CL32_106_O____`
-  - DB lookup pattern if the tool expects surrounding SQL wildcards: `%CL32_106_O____%`
-- catalog reasoning says `CL03A515MR3` is the proven front section but the remaining four slots are unresolved
-  - DB lookup pattern: `CL03A515MR3____`
-  - or `%CL03A515MR3____%` if the tool requires wildcard framing
+- 카탈로그 추론 결과: `사이즈=32`, `용량=106`, `전압=O`이지만 온도특성과 여러 tail 필드가 미해결
+  - 사람용 스켈레톤: `CL32[온도특성 TBD]106[편차 TBD]O[...]`
+  - 고정 길이 패턴 허용 시 DB 조회 패턴: `CL32_106_O____`
+  - 도구가 SQL 와일드카드 프레이밍 요구 시: `%CL32_106_O____%`
+- 카탈로그 추론 결과: `CL03A515MR3`이 증명된 앞부분이지만 나머지 4슬롯이 미해결
+  - DB 조회 패턴: `CL03A515MR3____`
+  - 또는 도구가 와일드카드 프레이밍 요구 시: `%CL03A515MR3____%`
 
-Prefer the narrowest useful pattern. Do not replace the whole suffix with `%` if several code positions are already known.
+가장 좁은 유용한 패턴을 우선한다. 여러 코드 위치가 이미 알려져 있는데 전체 접미사를 `%`로 대체하지 않는다.
 
-## Result Handling
+## 결과 처리
 
-### Zero Hits
+### 0건
 
-- state that no current DB hits were found for the pattern
-- keep the catalog-feasible skeletons visible
-- ask whether the user can relax one unresolved field such as temperature characteristic, tolerance, family, or nominal capacitance
+- 해당 패턴에 대해 현재 DB 히트가 없다고 밝힌다
+- 카탈로그상 가능한 스켈레톤은 계속 표시한다
+- 온도특성, 편차, 패밀리, 명목 용량 등 미해결 필드 중 하나를 완화할 수 있는지 질문한다
 
-### One Hit
+### 1건
 
-- show the returned `chip_prod_id`
-- state that it is a current DB hit, not automatic proof of every electrical requirement
-- continue validation against catalog guardrails and any remaining user constraints
+- 반환된 `chip_prod_id`를 표시한다
+- 현재 DB 히트이며, 모든 전기적 요구사항의 자동 증명은 아님을 밝힌다
+- 카탈로그 가드레일과 남은 사용자 제약 대비 검증을 계속한다
 
-### Multiple Hits
+### 다건
 
-- show the list, or the top subset if it is long
-- summarize the major differences if visible from the returned codes
-- ask exactly one targeted follow-up question that removes the biggest ambiguity
+- 목록을 표시하거나, 길면 상위 일부를 표시한다
+- 반환된 코드에서 보이는 주요 차이점을 요약한다
+- 가장 큰 모호성을 해소하는 포커스된 후속 질문 정확히 1개를 한다
 
-Examples of good follow-up axes:
+좋은 후속 질문 축 예시:
 
-- missing temperature characteristic
-- missing tolerance
-- missing reliability family
-- preference between nearest standard nominal values
+- 누락된 온도특성
+- 누락된 편차
+- 누락된 신뢰성 패밀리
+- 가장 가까운 표준 명목값 간 선호도
 
-Do not choose one active hit arbitrarily when multiple plausible hits remain.
+타당한 히트가 복수 남아있을 때 하나를 임의로 선택하지 않는다.
 
-## Follow-up Question Strategy
+## 후속 질문 전략
 
-Ask one short question that discriminates the unresolved slot with the highest payoff.
+미해결 슬롯 중 해소 효과가 가장 큰 것을 구분하는 짧은 질문 1개를 한다.
 
-Good examples:
+좋은 예시:
 
 - `현재 흐르는 품목은 여러 개입니다. 온도특성은 X5R과 X7R 중 어느 쪽이 필요합니까?`
 - `현행품은 찾았지만 M편차와 K편차가 섞여 있습니다. 허용 편차를 확정해 주세요.`
-- `현재 DB hit는 Standard와 High Level II가 함께 나옵니다. 산업용 신뢰성이 필요한지 확인해 주세요.`
+- `현재 DB 히트는 Standard와 High Level II가 함께 나옵니다. 산업용 신뢰성이 필요한지 확인해 주세요.`
 
-Avoid broad questions like:
+피해야 할 광범위한 질문:
 
 - `원하는 조건을 더 알려주세요.`
 
-## Output Template
+## 출력 템플릿
 
 ### 일반 DB 조회 시
 
-When a DB lookup was used, include:
+DB 조회를 사용한 경우 다음을 포함한다:
 
-1. `chip_prod_id lookup pattern`
-2. `active lineup hits from DB`
-3. `what remains ambiguous`
-4. `next question`
+1. `chip_prod_id 조회 패턴`
+2. `DB 활성 라인업 히트`
+3. `남은 모호성`
+4. `다음 질문`
 
-Example wording:
+예시 문구:
 
-- `chip_prod_id lookup pattern: CL32_106_O____`
-- `active lineup hits from DB: [ ... ]`
-- `current DB hits confirm that this front-side code family exists in the current lineup, but temperature characteristic and tail-code selection remain unresolved.`
-- `next question: 온도특성은 X5R(A)와 X7R(B) 중 어느 쪽이 필요합니까?`
+- `chip_prod_id 조회 패턴: CL32_106_O____`
+- `DB 활성 라인업 히트: [ ... ]`
+- `현재 DB 히트는 이 앞부분 코드 패밀리가 현행 라인업에 존재함을 확인하지만, 온도특성과 tail 코드 선택이 미해결입니다.`
+- `다음 질문: 온도특성은 X5R(A)와 X7R(B) 중 어느 쪽이 필요합니까?`
 
 ### 인접기종 검색 시 응답 형식
 
@@ -216,9 +216,9 @@ Example wording:
 2. **DB 조회 및 결과** — 조립된 패턴을 tool에 넣고, 결과 목록을 보여준다.
 3. **간단한 후속 안내** — 결과가 다건이면 축소 질문, 0건이면 완화 제안. 한두 문장으로 마무리.
 
-**Example:**
+**예시:**
 
-User: `CL32A106 인접기종 찾아줘`
+사용자: `CL32A106 인접기종 찾아줘`
 
 ---
 

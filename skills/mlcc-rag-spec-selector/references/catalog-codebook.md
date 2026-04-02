@@ -1,94 +1,92 @@
-# Catalog Codebook
+# 카탈로그 코드북
 
-Use this reference when mapping user constraints to SEMCO MLCC catalog concepts and chunk targets.
+사용자 제약조건을 삼성전기 MLCC 카탈로그 개념 및 청크 조회 타깃에 매핑할 때 이 reference를 참조한다.
 
-## Contents
+## 목차
 
-- Source Scope
-- Truth Policy
-- Chunk Routing
-- Input Normalization
-- Core Code Maps
-- Capacitance Code and Nominal Rules
-- Reliability and Family Routing
-- Part-Number Skeleton Policy
-- Active Lineup Pattern Policy
-- Catalog Anomalies
+- 출처 범위
+- 진실성 정책
+- 청크 라우팅
+- 입력 정규화
+- 핵심 코드 맵
+- 용량 코드 및 표준 명목 규칙
+- 신뢰성 및 패밀리 라우팅
+- 품번 스켈레톤 정책
+- 활성 라인업 패턴 정책
+- 카탈로그 이상치
 
-## Source Scope
+## 출처 범위
 
-- Samsung Electro-Mechanics MLCC catalog
+- 삼성전기 MLCC 카탈로그
 - Part I: Commercial / Industrial
-- Primary project assets:
+- 주요 프로젝트 자산:
   - `MLCC_2512 .pdf`
   - `mlcc_catalog_rag_chunks.jsonl`
   - `mlcc_catalog_rag_master_ko.md`
 
-## Truth Policy
+## 진실성 정책
 
-Treat these as catalog-confirmable:
+카탈로그로 확인 가능한 항목:
 
 - 온도특성 코드 의미
-- rated-voltage code meaning
-- capacitance-code rule
-- capacitance-tolerance code meaning
-- size-code meaning
-- thickness-code filtering
-- reliability family descriptions
-- example parts that appear directly in retrieved chunks
+- 정격전압 코드 의미
+- 용량 코드 규칙
+- 용량 편차 코드 의미
+- 사이즈 코드 의미
+- 두께 코드 필터링
+- 신뢰성 패밀리 설명
+- 조회된 청크에 직접 등장하는 예시 파트
 
-Treat these as validation-only unless directly retrieved for the target part:
+검증 전용 항목 (대상 파트에 대해 직접 조회되지 않는 한):
 
-- effective capacitance under 1V DC bias
-- high-frequency effective capacitance
-- exact ESR or ESL
-- exact full 8th-11th codes
-- exact orderable lineup or stocking status
+- 1V DC 바이어스 하 유효용량
+- 고주파 유효용량
+- 정확한 ESR 또는 ESL
+- 정확한 8~11번째 코드
+- 정확한 주문 가능 라인업 또는 재고 상태
 
-Treat `caution_characteristics` graphs as sample guidance only.
+`caution_characteristics` 그래프는 샘플 가이드로만 취급한다.
 
-## Chunk Routing
+## 청크 라우팅
 
-- `MLCC-002` to `MLCC-004`: part numbering, size, 온도특성 코드, capacitance code, tolerance, voltage, thickness, design, control, packaging
-- `MLCC-005`: reliability-level comparison
-- `MLCC-006` to `MLCC-012`: product families
-- `MLCC-013` to `MLCC-014`: new-product example parts
-- `MLCC-020` to `MLCC-021`: DC bias, AC voltage, impedance, aging, and caution characteristics
-- `MLCC-031` to `MLCC-032`: operating conditions, storage, disclaimers
+- `MLCC-002` ~ `MLCC-004`: 품번 체계, 사이즈, 온도특성 코드, 용량 코드, 편차, 전압, 두께, 설계, 제어, 포장
+- `MLCC-005`: 신뢰성 등급 비교
+- `MLCC-006` ~ `MLCC-012`: 제품 패밀리
+- `MLCC-013` ~ `MLCC-014`: 신제품 예시 파트
+- `MLCC-020` ~ `MLCC-021`: DC 바이어스, AC 전압, 임피던스, 에이징, 주의 특성
+- `MLCC-031` ~ `MLCC-032`: 사용 조건, 보관, 면책
 
-## Input Normalization
+## 입력 정규화
 
-### Length
+### 길이
 
-- Convert `um` to `mm`
-- Example: `690 um -> 0.690 mm`
+- `um`을 `mm`로 변환
+- 예시: `690 um -> 0.690 mm`
 
-### Capacitance
+### 용량
 
-- Normalize `uF`, `μF`, and `㎌` to `uF`
-- When the requested nominal is off E-series, keep the target value and derive nearest standard options
-- Example: `4.8 uF -> nearest standard around target: 4.7 uF (475), 5.1 uF (515)`
+- `uF`, `μF`, `㎌`을 `uF`로 통일
+- 요청 명목이 E-series에 없으면 타겟값을 유지하고 가장 가까운 표준 옵션을 도출
+- 예시: `4.8 uF -> 타겟 근처 표준: 4.7 uF (475), 5.1 uF (515)`
 
-### Voltage
+### 전압
 
-- Normalize `4V`, `4.0V`, `4Vdc` to `4.0Vdc`
+- `4V`, `4.0V`, `4Vdc`를 `4.0Vdc`로 정규화
 
-### Tolerance
+### 편차
 
 - `J = +/-5%`
 - `K = +/-10%`
 - `M = +/-20%`
 - `Z = -20,+80%`
 
-### Temperature Characteristic
-
-카탈로그 원문의 영문 헤딩은 `DIELECTRIC CODE`이지만, 사용자에게 답변할 때는 항상 **온도특성 코드**라고 표기한다. `temperature characteristic`, `온도특성`, `dielectric code`는 모두 같은 필드를 가리킨다.
+### 온도특성 코드
 
 단일 문자 요청이 오면 온도특성 코드로 먼저 해석한다.
 
-## Core Code Maps
+## 핵심 코드 맵
 
-### Size Code
+### 사이즈 코드
 
 - `R1 = 008004 / 0201`
 - `02 = 01005 / 0402`
@@ -110,28 +108,28 @@ Treat `caution_characteristics` graphs as sample guidance only.
 
 Class I:
 
-- `C = C0G`, operating `-55 to +125 C`, temp coefficient `0 +/- 30 ppm/C`
-- `G = X8G`, operating `-55 to +150 C`, temp coefficient `0 +/- 30 ppm/C`
+- `C = C0G`, 동작 범위 `-55 ~ +125 C`, 온도계수 `0 +/- 30 ppm/C`
+- `G = X8G`, 동작 범위 `-55 ~ +150 C`, 온도계수 `0 +/- 30 ppm/C`
 
 Class II:
 
-- `A = X5R`, operating `-55 to +85 C`, capacitance change `+/-15%`
-- `X = X6S`, operating `-55 to +105 C`, capacitance change `+/-22%`
-- `W = X6T`, operating `-55 to +105 C`, capacitance change `-33 to +22%`
-- `B = X7R`, operating `-55 to +125 C`, capacitance change `+/-15%`
-- `K = X7R(S)`, operating `-55 to +125 C`, capacitance change `+/-15%`
-- `Y = X7S`, operating `-55 to +125 C`, capacitance change `+/-22%`
-- `Z = X7T`, operating `-55 to +125 C`, capacitance change `-33 to +22%`
-- `F = Y5V`, operating `-30 to +85 C`, capacitance change `-82 to +22%`
-- `M = X8M`, operating `-55 to +150 C`, capacitance change `-50 to +50%`
-- `E = X8L`, operating `-55 to +150 C`, capacitance change `-40 to +15%`
-- `J = JIS-B`, operating `-25 to +85 C`, capacitance change `+/-10%`
+- `A = X5R`, 동작 범위 `-55 ~ +85 C`, 용량 변화율 `+/-15%`
+- `X = X6S`, 동작 범위 `-55 ~ +105 C`, 용량 변화율 `+/-22%`
+- `W = X6T`, 동작 범위 `-55 ~ +105 C`, 용량 변화율 `-33 ~ +22%`
+- `B = X7R`, 동작 범위 `-55 ~ +125 C`, 용량 변화율 `+/-15%`
+- `K = X7R(S)`, 동작 범위 `-55 ~ +125 C`, 용량 변화율 `+/-15%`
+- `Y = X7S`, 동작 범위 `-55 ~ +125 C`, 용량 변화율 `+/-22%`
+- `Z = X7T`, 동작 범위 `-55 ~ +125 C`, 용량 변화율 `-33 ~ +22%`
+- `F = Y5V`, 동작 범위 `-30 ~ +85 C`, 용량 변화율 `-82 ~ +22%`
+- `M = X8M`, 동작 범위 `-55 ~ +150 C`, 용량 변화율 `-50 ~ +50%`
+- `E = X8L`, 동작 범위 `-55 ~ +150 C`, 용량 변화율 `-40 ~ +15%`
+- `J = JIS-B`, 동작 범위 `-25 ~ +85 C`, 용량 변화율 `+/-10%`
 
-Note:
+참고:
 
-- `K = X7R(S)` is still X7R-family behavior, with the catalog note `DC Bias 0.5Vr TCC`.
+- `K = X7R(S)`는 X7R 계열 거동이며, 카탈로그에 `DC Bias 0.5Vr TCC` 주석이 있다.
 
-### Capacitance Tolerance Code
+### 용량 편차 코드
 
 - `N = +/-0.03 pF`
 - `A = +/-0.05 pF`
@@ -140,8 +138,8 @@ Note:
 - `H = +0.25 pF`
 - `L = -0.25 pF`
 - `D = +/-0.5 pF`
-- `F = +/-1 pF` for values `< 10 pF`
-- `F = +/-1%` for values `>= 10 pF`
+- `F = +/-1 pF` (`< 10 pF`일 때)
+- `F = +/-1%` (`>= 10 pF`일 때)
 - `G = +/-2%`
 - `J = +/-5%`
 - `U = +5%`
@@ -150,7 +148,7 @@ Note:
 - `M = +/-20%`
 - `Z = -20,+80%`
 
-### Rated Voltage Code
+### 정격전압 코드
 
 - `S = 2.5Vdc`
 - `R = 4.0Vdc`
@@ -170,110 +168,110 @@ Note:
 - `J = 2kVdc`
 - `K = 3kVdc`
 
-## Capacitance Code and Nominal Rules
+## 용량 코드 및 표준 명목 규칙
 
-### Capacitance Code Rule
+### 용량 코드 규칙
 
-- Express capacitance in `pF`
-- Use `2 significant digits + number of zeros`
-- For values `< 10 pF`, use `R` as the decimal point
+- 용량을 `pF` 단위로 표현
+- `유효숫자 2자리 + 0의 개수`로 구성
+- `< 10 pF`일 때 소수점 위치에 `R`을 사용
 
-Examples:
+예시:
 
 - `106 = 10 x 10^6 pF = 10,000,000 pF = 10 uF`
 - `475 = 47 x 10^5 pF = 4,700,000 pF = 4.7 uF`
 - `515 = 51 x 10^5 pF = 5,100,000 pF = 5.1 uF`
 - `1R5 = 1.5 pF`
 
-### Standard Nominal Series
+### 표준 명목 시리즈
 
-Use the catalog's nominal series from `MLCC-003` when the requested nominal is not itself standard.
+요청 명목이 표준이 아닐 때 `MLCC-003`의 카탈로그 명목 시리즈를 사용한다.
 
 - `E-3 = 1.0, 2.2, 4.7`
 - `E-6 = 1.0, 1.5, 2.2, 3.3, 4.7, 6.8`
 - `E-12 = 1.0, 1.2, 1.5, 1.8, 2.2, 2.7, 3.3, 3.9, 4.7, 5.6, 6.8, 8.2`
 - `E-24 = 1.0, 1.1, 1.2, 1.3, 1.5, 1.6, 1.8, 2.0, 2.2, 2.4, 2.7, 3.0, 3.3, 3.6, 3.9, 4.3, 4.7, 5.1, 5.6, 6.2, 6.8, 7.5, 8.2, 9.1`
 
-Apply the series by decade. Example:
+시리즈는 10배씩 적용한다. 예시:
 
-- `4.8 uF` is not a listed standard nominal, so report nearest standard options such as `4.7 uF (475)` and `5.1 uF (515)` instead of silently forcing one.
+- `4.8 uF`는 표준 명목이 아니므로, 묵인하지 말고 `4.7 uF (475)`, `5.1 uF (515)` 등 가장 가까운 표준 옵션을 보고한다.
 
-### Reliability and Family Routing
+### 신뢰성 및 패밀리 라우팅
 
-- `control code N = Standard`
-- `control code W = Industrial / High Level I`
-- `product or size control code 4 = Industrial / High Level II`
+- `제어 코드 N = Standard`
+- `제어 코드 W = Industrial / High Level I`
+- `제품 또는 사이즈 제어 코드 4 = Industrial / High Level II`
 
-Use these application cues:
+적용처 힌트 기반 라우팅:
 
-- `server`, `network`, `industrial power`, `humidity reliability` -> High Level I or II
-- `outdoor`, `85C 85%RH 1000h` -> High Level II
-- `bending`, `board flex`, `mechanical stress` -> High Bending Strength
-- `audible noise`, `piezo`, `PAM`, `PMIC` -> Low Acoustic Noise
-- `low inductance`, `high-speed IC`, `fewer chips` -> Low ESL
-- `thin module`, `between solder balls`, `package` -> LSC
-- `crack resistance`, `stacked structure`, `noise reduction` -> MFC
-- no special cue -> Normal Standard
+- `서버`, `네트워크`, `산업용 전원`, `습도 신뢰성` -> High Level I 또는 II
+- `옥외`, `85C 85%RH 1000h` -> High Level II
+- `벤딩`, `기판 휨`, `기계적 스트레스` -> High Bending Strength
+- `가청 소음`, `피에조`, `PAM`, `PMIC` -> Low Acoustic Noise
+- `저인덕턴스`, `고속 IC`, `칩 수 절감` -> Low ESL
+- `박형 모듈`, `솔더볼 사이`, `패키지` -> LSC
+- `크랙 저항`, `적층 구조`, `노이즈 저감` -> MFC
+- 특별한 힌트 없음 -> Normal Standard
 
-## Part-Number Skeleton Policy
+## 품번 스켈레톤 정책
 
-Use the canonical skeleton:
+표준 스켈레톤 형식:
 
-`CL [size] [온도특성] [capacitance] [tolerance] [voltage] [thickness] [design] [product-or-size-control] [control] [packaging]`
+`CL [사이즈] [온도특성] [용량] [편차] [전압] [두께] [설계] [제품/사이즈제어] [제어] [포장]`
 
-Keep the 8th-11th codes unresolved unless directly supported by retrieved evidence.
+8~11번째 코드는 조회된 근거로 직접 뒷받침되지 않는 한 미해결 상태로 유지한다.
 
-Allowed forms:
+허용 형식:
 
 - `CL03A475MR3?N?#`
-- `CL03A515MR3[design TBD][product code TBD][control TBD][packaging TBD]`
+- `CL03A515MR3[설계 TBD][제품코드 TBD][제어 TBD][포장 TBD]`
 
-Do not collapse unresolved fields into a fabricated full P/N.
+미해결 필드를 임의로 채워서 완성된 P/N을 만들지 않는다.
 
-## Active Lineup Pattern Policy
+## 활성 라인업 패턴 정책
 
-Use a separate DB-facing pattern when checking current products by `chip_prod_id`.
+현행품을 `chip_prod_id`로 확인할 때는 별도의 DB용 패턴을 사용한다.
 
-Rules:
+규칙:
 
-- keep known literal code positions
-- replace unknown single-character positions with `_`
-- use `%` only when the DB lookup tool expects SQL-like variable-length matching
+- 알려진 리터럴 코드 위치는 유지
+- 미지 1문자 위치는 `_`로 대체
+- `%`는 DB 조회 도구가 SQL 스타일 가변 길이 매칭을 요구할 때만 사용
 
-Examples:
+예시:
 
 - `CL32_106_O____`
 - `%CL32_106_O____%`
 - `CL03A515MR3____`
 
-## Size and Thickness Filtering
+## 사이즈 및 두께 필터링
 
-When the user provides L/W/T max constraints, filter candidates in two stages before searching example parts.
+사용자가 L/W/T 최대 제약을 제공하면, 예시 파트를 검색하기 전에 2단계로 후보를 필터링한다.
 
-### Stage 1: Size Code Filtering
+### 1단계: 사이즈 코드 필터링
 
-Compare user L/W max against nominal size code dimensions. Reject any size code whose nominal L or W exceeds the user limit.
+사용자 L/W 최대치를 공칭 사이즈 코드 치수와 비교한다. 공칭 L 또는 W가 사용자 한계를 초과하는 사이즈 코드는 탈락시킨다.
 
-Examples:
+예시:
 
 - `L <= 0.690 mm, W <= 0.390 mm`
-  - `03 (0201/0603 = 0.60 x 0.30)` -> pass
-  - `05 (0402/1005 = 1.00 x 0.50)` -> reject: L and W exceed max
-  - `02 (01005/0402 = 0.40 x 0.20)` -> pass, but capacitance feasibility is weak at this size
-  - `10 (0603/1608 = 1.60 x 0.80)` -> reject: L exceeds max
+  - `03 (0201/0603 = 0.60 x 0.30)` -> 통과
+  - `05 (0402/1005 = 1.00 x 0.50)` -> 탈락: L, W 모두 초과
+  - `02 (01005/0402 = 0.40 x 0.20)` -> 통과, 단 이 사이즈에서 용량 실현 가능성 낮음
+  - `10 (0603/1608 = 1.60 x 0.80)` -> 탈락: L 초과
 
-### Stage 2: Thickness Code Filtering
+### 2단계: 두께 코드 필터링
 
-After size codes pass, check the thickness code from `MLCC-003` against T max.
+사이즈 코드 통과 후, `MLCC-003`의 두께 코드를 T 최대치와 비교한다.
 
-Examples:
+예시:
 
-- `0201/0603 -> thickness code 3 = 0.30 +/-0.03 mm` -> if T max = 0.550 mm, pass
-- `01005/0402 -> thickness code 2 = 0.20 +/-0.02 mm` -> if T max = 0.550 mm, pass
+- `0201/0603 -> 두께 코드 3 = 0.30 +/-0.03 mm` -> T max = 0.550 mm이면 통과
+- `01005/0402 -> 두께 코드 2 = 0.20 +/-0.02 mm` -> T max = 0.550 mm이면 통과
 
-### Stage 3: Family-Specific Dimensions
+### 3단계: 패밀리별 치수
 
-Specialty families have their own dimension tables that take priority over nominal size code dimensions. Check the family-specific reference chunk before concluding a size candidate passes.
+특수 패밀리는 공칭 사이즈 코드 치수보다 우선하는 자체 치수 테이블을 가진다. 사이즈 후보가 통과한다고 결론 내리기 전에 패밀리별 reference 청크를 확인한다.
 
 - `LSC -> MLCC-009`
 - `MFC -> MLCC-008`
@@ -281,32 +279,32 @@ Specialty families have their own dimension tables that take priority over nomin
 - `Low Acoustic Noise -> MLCC-011`
 - `Low ESL -> MLCC-012`
 
-Normal family candidates use nominal size + thickness code for first-pass filtering, then require datasheet verification for the exact physical envelope.
+Normal 패밀리 후보는 공칭 사이즈 + 두께 코드로 1차 필터링 후, 정확한 물리적 외형은 데이터시트 검증이 필요하다.
 
-## Condition Relaxation Maps
+## 조건 완화 맵
 
-When `active_lineup_lookup` returns 0 hits, use these ordered sequences to propose the nearest alternative code in each direction.
+`active_lineup_lookup`이 0건을 반환하면, 아래 순서를 사용해 각 방향의 가장 가까운 대체 코드를 제안한다.
 
-### Size Relaxation Order (small → large)
+### 사이즈 완화 순서 (소 → 대)
 
 `R1` → `02` → `03` → `05` → `10` → `21` → `31` → `32` → `42` → `43` → `55`
 
-Special sizes (`L5`, `L6`, `01`, `19`) do not participate in this linear order. If the current size is special, ask the user to specify the alternative explicitly.
+특수 사이즈(`L5`, `L6`, `01`, `19`)는 이 선형 순서에 참여하지 않는다. 현재 사이즈가 특수한 경우 사용자에게 대안을 직접 지정하도록 요청한다.
 
-### Voltage Relaxation Order (low → high)
+### 전압 완화 순서 (저 → 고)
 
 `S (2.5V)` → `R (4V)` → `Q (6.3V)` → `P (10V)` → `O (16V)` → `A (25V)` → `L (35V)` → `B (50V)` → `C (100V)` → `D (200V)` → `E (250V)` → `F (350V)` → `G (500V)` → `H (630V)` → `I (1kV)` → `J (2kV)` → `K (3kV)`
 
-### Capacitance Relaxation
+### 용량 완화
 
-Capacitance does not follow a single code sequence because the 3-digit code encodes the actual value. Instead, move to the nearest E-series nominal in the same decade:
+용량은 3자리 코드가 실제 값을 인코딩하므로 단일 코드 순서가 없다. 대신 같은 디케이드 내 가장 가까운 E-series 명목으로 이동한다:
 
-- From `106 (10 uF)`: down → `685 (6.8 uF)`, up → `156 (15 uF)` or `226 (22 uF)`
-- From `475 (4.7 uF)`: down → `335 (3.3 uF)`, up → `515 (5.1 uF)` or `685 (6.8 uF)`
+- `106 (10 uF)`에서: 하향 → `685 (6.8 uF)`, 상향 → `156 (15 uF)` 또는 `226 (22 uF)`
+- `475 (4.7 uF)`에서: 하향 → `335 (3.3 uF)`, 상향 → `515 (5.1 uF)` 또는 `685 (6.8 uF)`
 
-Use the E-12 or E-24 series from the Standard Nominal Series section to find the next value up or down.
+표준 명목 시리즈 섹션의 E-12 또는 E-24 시리즈를 사용해 상/하향 다음 값을 찾는다.
 
-## Catalog Anomalies
+## 카탈로그 이상치
 
-- Some new-product rows appear inconsistent with the part-number rule and displayed capacitance. Treat them as anchors, then require datasheet confirmation.
-- Some new-product rows appear duplicated. Do not treat duplication as stronger evidence.
+- 일부 신제품 행은 품번 규칙과 표시 용량이 일치하지 않는 경우가 있다. 앵커로 취급하되, 데이터시트 확인을 요구한다.
+- 일부 신제품 행이 중복되어 나타난다. 중복을 더 강한 근거로 취급하지 않는다.

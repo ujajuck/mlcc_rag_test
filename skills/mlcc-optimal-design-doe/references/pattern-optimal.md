@@ -9,9 +9,9 @@
 빠진 targets만 묻는다. 5개:
 
 - target_electrode_c_avg — 타겟용량 (uF)
-- target_grinding_l_avg — 타겟 연마L사이즈 (mm)
-- target_grinding_w_avg — 타겟 연마W사이즈 (mm)
-- target_grinding_t_avg — 타겟 연마T사이즈 (mm)
+- target_grinding_l_avg — 타겟 연마L사이즈 (um)
+- target_grinding_w_avg — 타겟 연마W사이즈 (um)
+- target_grinding_t_avg — 타겟 연마T사이즈 (um)
 - target_dc_cap — 타겟DC용량 (uF)
 
 사용자가 delta로 말하면 기준값이 명확할 때만 절대값으로 변환한다.
@@ -56,9 +56,9 @@ cast_dsgn_thk: [4.75, 4.80, 4.85, 4.90, 4.95, 5.00, 5.05, 5.10, 5.15, 5.20, 5.25
 optimal_design(
     lot_id="AKB45A2",
     target_electrode_c_avg=10.0,
-    target_grinding_l_avg=1.6,
-    target_grinding_w_avg=0.8,
-    target_grinding_t_avg=0.85,
+    target_grinding_l_avg=1600,
+    target_grinding_w_avg=800,
+    target_grinding_t_avg=850,
     target_dc_cap=10.5,
     active_layer=[150, 152, ..., 170],
     ldn_avr_value=[2.80, 2.85, ..., 3.20],
@@ -103,7 +103,7 @@ optimal_design(
 
 주의:
 - 최신 top 5 결과가 문맥에 없으면 어떤 후보를 말하는지 먼저 확인한다
-- targets도 변경할 수 있다. 예: "target_grinding_t_avg만 0.75로 바꿔서 다시"
+- targets도 변경할 수 있다. 예: "target_grinding_t_avg만 750으로 바꿔서 다시"
 
 ## 입력 수집 규칙
 

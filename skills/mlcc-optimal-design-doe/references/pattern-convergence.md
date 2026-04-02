@@ -15,7 +15,8 @@
 
 - lot_id 검증 완료 (get_first_lot_detail → check_optimal_design → 부족인자 해결)
 - 사용자로부터 다음을 확보:
-  - **targets**: target_electrode_c_avg, target_grinding_l_avg, target_grinding_w_avg, target_grinding_t_avg, target_dc_cap
+  - **targets**: target_electrode_c_avg(uF), target_grinding_l_avg(um), target_grinding_w_avg(um), target_grinding_t_avg(um), target_dc_cap(uF)
+  - **신뢰성 시험 조건**: halt_voltage (시험 전압 — 스펙전압 대비 배수 예: 1.5Vr 또는 절대전압 예: 6.3V), halt_temperature (시험 온도°C 예: 85)
   - **신뢰성 기준**: 최소 통과확률 (예: 80% 이상). 사용자가 명시하지 않으면 80%를 기본값으로 제안한다.
   - **허용 오차** (선택): target 대비 허용 gap (예: 용량 ±3%). 미지정 시 ±5%를 기본값으로 제안한다.
 
@@ -137,9 +138,9 @@ cover_sheet_thk 스윕 결과 (나머지는 ref lot 기준):
 ```
 수렴 판정:
 - electrode_c_avg gap: +0.02uF (허용 ±0.5uF) ✅
-- grinding_l_avg gap: -0.005mm (허용 ±0.05mm) ✅
-- grinding_w_avg gap: +0.003mm (허용 ±0.03mm) ✅
-- grinding_t_avg gap: +0.01mm (허용 ±0.05mm) ✅
+- grinding_l_avg gap: -5um (허용 ±50um) ✅
+- grinding_w_avg gap: +3um (허용 ±30um) ✅
+- grinding_t_avg gap: +10um (허용 ±50um) ✅
 - dc_cap gap: +0.03uF (허용 ±0.5uF) ✅
 - 신뢰성 통과확률: 0.86 (기준 ≥0.80) ✅
 → 수렴 완료
@@ -181,9 +182,9 @@ cover_sheet_thk 스윕 결과 (나머지는 ref lot 기준):
 | 항목 | 타겟 | 예측 | gap | 판정 |
 |---|---|---|---|---|
 | electrode_c_avg | 10.0 uF | 10.02 uF | +0.02 | ✅ |
-| grinding_l_avg | 1.60 mm | 1.595 mm | -0.005 | ✅ |
-| grinding_w_avg | 0.80 mm | 0.803 mm | +0.003 | ✅ |
-| grinding_t_avg | 0.85 mm | 0.86 mm | +0.01 | ✅ |
+| grinding_l_avg | 1600 um | 1595 um | -5 | ✅ |
+| grinding_w_avg | 800 um | 803 um | +3 | ✅ |
+| grinding_t_avg | 850 um | 860 um | +10 | ✅ |
 | dc_cap | 10.5 uF | 10.53 uF | +0.03 | ✅ |
 
 [신뢰성] 통과확률: 0.8634 (기준 ≥ 0.80) ✅
@@ -205,6 +206,6 @@ cover_sheet_thk 스윕 결과 (나머지는 ref lot 기준):
 | 사용자 요청 | 수렴 탐색 적용 |
 |---|---|
 | "타겟 맞추면서 신뢰성 80% 이상 나오는 설계 찾아줘" | 전체 Phase 1→2→3→4 |
-| "용량 10uF, 연마T 0.85 맞추고 신뢰성도 확보해줘" | Phase 1→2→3→4 |
+| "용량 10uF, 연마T 850um 맞추고 신뢰성도 확보해줘" | Phase 1→2→3→4 |
 | "알아서 최적설계랑 신뢰성 둘 다 만족하는거 찾아" | Phase 1→2→3→4 |
 | "지금 후보에서 신뢰성이 떨어지는데, 타겟 유지하면서 개선해줘" | Phase 3부터 (기존 후보를 base로) |

@@ -1,184 +1,226 @@
-# Prompt Examples
+# 프롬프트 예시
 
-Use these examples when invoking the skill from Korean, English, or mixed-language user requests.
+한국어, 영어, 또는 혼합 언어 사용자 요청에서 스킬을 호출할 때 이 예시들을 참고한다.
 
-## Contents
+## 목차
 
-- Spec Preselection
-- Reliability and Family Selection
-- Candidate Comparison
-- Part-Number Skeleton Review
-- Active Lineup Interaction
-- Guardrailed Validation Requests
+- 스펙 사전선정
+- 신뢰성 및 패밀리 선택
+- 후보 비교
+- 품번 스켈레톤 검토
+- 활성 라인업 대화
+- 가드레일 검증 요청
 
-## Spec Preselection
+## 스펙 사전선정
 
-### Example 1
+### 예시 1
 
 `고객사 의뢰로 스펙 만족하는 MLCC 기종부터 선정해야해. A 온도특성, 정격전압 4V, L size 최대 690um, W size 최대 390um, T size 최대 550um, 기준용량 4.8uF, M편차, 고주파 저전계에서 1V DC 전계를 인가했을 때 최소 3.45uF 를 만족하는 기종을 catalog 기준으로 찾아줘.`
 
-Expected behavior:
+기대 동작:
 
-- interpret `A` as `X5R`
-- normalize dimensions to `mm`
-- derive nearest standard nominal candidates around `4.8uF`
-- keep the `1V DC` and `high-frequency` requirement in validation-only status unless exact evidence is retrieved
+- `A`를 `X5R`로 해석
+- 치수를 `mm`로 정규화
+- `4.8uF` 근처에서 가장 가까운 표준 명목 후보를 도출
+- `1V DC` 및 `고주파` 요구는 정확한 근거가 조회되지 않는 한 검증 전용으로 유지
 
-### Example 2
+### 예시 2
 
 `Use $mlcc-rag-spec-selector to preselect SEMCO MLCC candidates for X7R, 6.3V, 0201/0603-class dimensions, nominal around 4.7uF, +/-20% tolerance. Answer in Korean and separate catalog facts from datasheet-only checks.`
 
-Expected behavior:
+기대 동작:
 
-- resolve code tables first
-- search nearby new-product anchors
-- return candidate skeletons if no exact orderable part is proven
+- 코드 테이블을 먼저 해석
+- 인접 신제품 앵커를 검색
+- 정확한 주문 가능 파트가 증명되지 않으면 후보 스켈레톤을 반환
 
-## Reliability and Family Selection
+## 신뢰성 및 패밀리 선택
 
-### Example 3
+### 예시 3
 
 `서버 전원용이라 습도 신뢰성이 중요해. 85C/85%RH/1000h 쪽에 맞는 family가 필요하고, 가능한 경우 High Level II 기준으로 size와 voltage 조건에 맞는 후보를 찾아줘.`
 
-Expected behavior:
+기대 동작:
 
-- route to `High Level II`
-- search `reliability_level` and relevant product-family chunks before example parts
-- explain if the reliability family is catalog-backed but the exact lineup still needs validation
+- `High Level II`로 라우팅
+- 예시 파트 전에 `reliability_level`과 관련 제품 패밀리 청크를 검색
+- 신뢰성 패밀리가 카탈로그 근거는 있지만 정확한 라인업은 아직 검증이 필요하다면 그렇게 설명
 
-### Example 4
+### 예시 4
 
 `I need a low acoustic noise MLCC candidate for a PMIC/DC-DC area. Search the catalog and tell me whether Low Acoustic Noise or MFC is the better family anchor for this use case.`
 
-Expected behavior:
+기대 동작:
 
-- compare family descriptions first
-- only move to part examples after the family decision is grounded in retrieved chunks
+- 패밀리 설명을 먼저 비교
+- 패밀리 결정이 조회된 청크에 근거한 후에만 파트 예시로 이동
 
-## Candidate Comparison
+## 후보 비교
 
-### Example 5
+### 예시 5
 
 `4.8uF exact nominal이 카탈로그 표준이 아니면 4.7uF와 5.1uF 후보를 둘 다 비교해줘. 어느 쪽이 catalog-based preselection으로 더 안전한지 이유를 설명하고, exact guarantee는 하지 마.`
 
-Expected behavior:
+기대 동작:
 
-- use E-series nominal logic
-- compare `475` versus `515`
-- keep final language at preselection level
+- E-series 명목 로직 사용
+- `475` vs `515` 비교
+- 최종 표현은 사전선정 수준으로 유지
 
-## Part-Number Skeleton Review
+## 품번 스켈레톤 검토
 
-### Example 6
+### 예시 6
 
 `CL03A515MR3?N?# 같은 skeleton이 현재 스펙에 맞는지 검토해줘. 각 code가 무엇을 의미하는지 풀어서 설명하고, 확정 불가능한 tail code는 TBD로 유지해줘.`
 
-Expected behavior:
+기대 동작:
 
-- decode the proven fields
-- refuse to fabricate unresolved 8th-11th codes
-- state which chunk types support the interpretation
+- 증명된 필드를 디코딩
+- 미해결 8~11번째 코드를 임의로 만들지 않음
+- 어떤 청크 유형이 해석을 뒷받침하는지 명시
 
-## Active Lineup Interaction
+### 스켈레톤 답변 형식 A — 트리 다이어그램
 
-### Example 7
+후보 스켈레톤을 아래처럼 트리 다이어그램으로 시각화하면 각 코드 자리의 의미를 직관적으로 전달할 수 있다.
+
+```
+CL 03 A 475 M R 3 _ _ _ _
+│  │  │ │     │ │ │ │   └─ 포장 / 제어 (미확정)
+│  │  │ │     │ │ │ └───── 설계 코드 (미확정)
+│  │  │ │     │ │ └─────── 두께 코드 (3 = 0.30 mm)
+│  │  │ │     │ └───────── 전압 코드 R = 4 V
+│  │  │ └─────────────── 용량 코드 475 = 4.7 μF
+│  │  └───────────────── 온도특성 A = X5R
+│  └──────────────────── 사이즈 코드 03 = 0201/0603 (L ≈ 0.60 mm, W ≈ 0.30 mm)
+└─────────────────────── "CL" = MLCC 시리즈
+
+* 전체 품번 앞 8자리 고정
+
+완성되지 않은 8~11번째 자리(설계 / 제품·사이즈제어 / 제어 / 포장)는
+현재 카탈로그 청크에 근거가 없으므로 _ 로 표시했습니다.
+```
+
+### 스켈레톤 답변 형식 B — 번호 주석
+
+후보 스켈레톤의 각 자리를 번호로 분리하고, 아래에 항목별 설명을 나열하는 형식이다.
+
+```
+CL   03   A   475   M   R   3   _   _   _   _
+──   ──   ─   ───   ─   ─   ─   ─   ─   ─   ─
+①    ②   ③    ④    ⑤   ⑥   ⑦   ⑧   ⑨   ⑩   ⑪
+
+① 시리즈     : CL (Standard MLCC)
+② 사이즈 코드 : 03 (0.6 x 0.3 mm)
+③ 온도특성    : A (X5R)
+④ 용량       : 475 (4.7 μF)
+⑤ 편차       : M (±20%)
+⑥ 정격전압    : R (4 V)
+⑦ 두께       : 3 (0.30 mm)
+⑧~⑪ 나머지   : 설계 / 제어 / 포장 (카탈로그 데이터 필요)
+```
+
+> 형식 A와 B 중 하나를 선택하거나 혼합하여 사용한다. 핵심은 확정된 코드와 미확정 코드를 명확히 구분하고, 각 자리의 의미를 사용자가 한눈에 파악할 수 있게 하는 것이다.
+
+## 활성 라인업 대화
+
+### 예시 7
 
 `지금 조건으로 딱 하나로 못 정하면 괜찮아. 일단 부분 코드만 만들어서 현재 흐르는 품목이 있는지 보여줘. 예를 들면 CL32_106_O____ 같은 식으로 검색해서 리스트를 먼저 보고 싶어.`
 
-Expected behavior:
+기대 동작:
 
-- derive the strongest catalog-backed partial pattern first
-- run the active-lineup DB lookup with `chip_prod_id`
-- show the returned list before forcing a single selection
-- ask one targeted follow-up question
+- 카탈로그 근거가 가장 강한 부분 패턴을 먼저 도출
+- `chip_prod_id`로 활성 라인업 DB 조회 실행
+- 단일 선택을 강제하기 전에 반환된 목록을 표시
+- 포커스된 후속 질문 1개
 
-### Example 8
+### 예시 8
 
 `CL32_106_O____ 패턴으로 현행품을 찾아서 리스트를 보여주고, 그 다음 어떤 조건이 더 필요할지 질문해줘.`
 
-Expected behavior:
+기대 동작:
 
-- treat the user string as a DB-facing pattern request
-- use the current-product lookup tool if available
-- continue the dialogue based on returned hits, not on a guessed final P/N
+- 사용자 문자열을 DB용 패턴 요청으로 취급
+- 현행품 조회 도구가 있으면 사용
+- 추측된 최종 P/N이 아니라 반환된 히트 기반으로 대화를 이어감
 
-## Full Response Example
+## 전체 응답 예시
 
-### Example: End-to-End Spec Preselection
+### 예시: 종합 스펙 사전선정
 
-User prompt:
+사용자 프롬프트:
 
 `고객사 의뢰로 스펙 만족하는 MLCC 기종부터 선정해야해. A 온도특성, 정격전압 4V, L size 최대 690um, W size 최대 390um, T size 최대 550um, 기준용량 4.8uF, M편차, 고주파 저전계에서 1V DC 전계를 인가했을 때 최소 3.45uF 를 만족하는 기종을 catalog 기준으로 찾아줘.`
 
-Full response:
+전체 응답:
 
 ---
 
-**1. Constraints Summary**
+**1. 제약조건 요약**
 
 | 구분 | 항목 | 값 |
 |---|---|---|
-| hard | 온도특성(유전체) 코드 | A (X5R) |
+| hard | 온도특성 코드 | A (X5R) |
 | hard | 정격전압 | 4V (code R, 4.0Vdc) |
 | hard | L max | 0.690 mm |
 | hard | W max | 0.390 mm |
 | hard | T max | 0.550 mm |
 | hard | 편차 | M (±20%) |
 | soft | 기준용량 | 4.8 uF (비표준 → 표준 후보 도출) |
-| validation-only | 유효용량 | 고주파 저전계 1V DC에서 최소 3.45 uF |
+| 검증 전용 | 유효용량 | 고주파 저전계 1V DC에서 최소 3.45 uF |
 
-**2. Derived Code Mapping**
+**2. 코드 매핑 도출**
 
 - 온도특성 코드: `A` → X5R (Class II, -55~+85°C, ±15%)
 - 정격전압 코드: `R` → 4.0Vdc
 - 편차 코드: `M` → ±20%
-- Size 후보: `03` (0201/0603, nominal 0.60×0.30 mm) — L/W max 통과
+- 사이즈 후보: `03` (0201/0603, 공칭 0.60×0.30 mm) — L/W max 통과
   - `05` (0402/1005, 1.00×0.50 mm) — L/W 초과로 탈락
-- Thickness 후보: code `3` (0.30 ±0.03 mm) — T max 0.550 mm 통과
+- 두께 후보: 코드 `3` (0.30 ±0.03 mm) — T max 0.550 mm 통과
 - 기준용량: 4.8 uF는 E-series 비표준
-  - 후보 1: 4.7 uF → code `475`
-  - 후보 2: 5.1 uF → code `515`
+  - 후보 1: 4.7 uF → 코드 `475`
+  - 후보 2: 5.1 uF → 코드 `515`
 
-**3. Exact Catalog Matches**
+**3. 정확 카탈로그 매칭**
 
-exact catalog match: none in retrieved evidence
+정확한 카탈로그 일치 항목이 조회된 근거에 없음
 
-(0201/0603 + X5R + 4.0V + 4.7~5.1 uF 조합의 orderable example part가 검색되지 않음)
+(0201/0603 + X5R + 4.0V + 4.7~5.1 uF 조합의 주문 가능 예시 파트가 검색되지 않음)
 
-**4. Closest Catalog Anchors**
+**4. 근접 카탈로그 앵커**
 
-| Anchor | Part | 일치 | 불일치 |
+| 앵커 | 파트 | 일치 | 불일치 |
 |---|---|---|---|
-| 1 | CL03X475MS3CNW# | size 03, 4.7uF, ±20% | X6S(X, not A), 2.5V(S, not R) |
+| 1 | CL03X475MS3CNW# | 사이즈 03, 4.7uF, ±20% | X6S(X, A 아님), 2.5V(S, R 아님) |
 
-→ 이 anchor는 0201/0603에서 4.7uF급 Class II가 물리적으로 가능하다는 feasibility evidence이지만, 온도특성과 전압이 다르므로 exact match는 아님.
+→ 이 앵커는 0201/0603에서 4.7uF급 Class II가 물리적으로 가능하다는 실현 가능성 근거이지만, 온도특성과 전압이 다르므로 정확 매칭은 아님.
 
-**5. Recommended Candidate Skeletons**
+**5. 권장 후보 스켈레톤**
 
-| 순위 | Skeleton | 근거 | 미확정 |
+| 순위 | 스켈레톤 | 근거 | 미확정 |
 |---|---|---|---|
-| 1 | `CL03A515MR3?N?#` | 5.1uF는 4.8uF target 대비 상향 대체로 effective capacitance margin에 유리 | 8th~11th code (design, product, control, packaging) |
-| 2 | `CL03A475MR3?N?#` | 4.7uF는 target에 가장 가까운 하향 표준 nominal | 동일 |
+| 1 | `CL03A515MR3?N?#` | 5.1uF는 4.8uF 타겟 대비 상향 대체로 유효용량 마진에 유리 | 8~11번째 코드 (설계, 제품, 제어, 포장) |
+| 2 | `CL03A475MR3?N?#` | 4.7uF는 타겟에 가장 가까운 하향 표준 명목 | 동일 |
 
-추천: skeleton 1 (`515`, 5.1uF)을 우선 preselection으로 권장. DC bias에 의한 용량 감소를 고려하면 높은 nominal이 3.45uF 최소 요건을 충족할 가능성이 더 높기 때문.
+추천: 스켈레톤 1 (`515`, 5.1uF)을 우선 사전선정으로 권장. DC 바이어스에 의한 용량 감소를 고려하면 높은 명목이 3.45uF 최소 요건을 충족할 가능성이 더 높기 때문.
 
-**6. Needs Datasheet or Measured Validation**
+**6. 데이터시트 또는 실측 검증 필요 항목**
 
-- 1V DC bias 고주파 저전계 조건에서의 실제 유효용량 ≥ 3.45 uF 여부
-- exact tail code (design, product/size control, control, packaging)
-- 해당 skeleton에 대응하는 orderable lineup 존재 여부
-- DC bias characteristic은 catalog의 sample graph만으로는 단정할 수 없으며, 개별 데이터시트 또는 실측 데이터가 필요함
+- 1V DC 바이어스 고주파 저전계 조건에서의 실제 유효용량 ≥ 3.45 uF 여부
+- 정확한 tail 코드 (설계, 제품/사이즈 제어, 제어, 포장)
+- 해당 스켈레톤에 대응하는 주문 가능 라인업 존재 여부
+- DC 바이어스 특성은 카탈로그의 샘플 그래프만으로는 단정할 수 없으며, 개별 데이터시트 또는 실측 데이터가 필요함
 
 ---
 
-## Guardrailed Validation Requests
+## 가드레일 검증 요청
 
-### Example 9
+### 예시 9
 
 `이 후보가 1V DC 바이어스에서 반드시 3.45uF 이상인지 보장해줘.`
 
-Expected behavior:
+기대 동작:
 
-- refuse a hard guarantee unless exact retrieved evidence exists
-- answer with catalog-backed caution wording
-- move the ask into `needs datasheet or measured validation`
+- 정확한 조회 근거가 없는 한 확정 보증을 거절
+- 카탈로그 근거 기반의 주의 문구로 응답
+- 해당 요청을 `데이터시트 또는 실측 검증 필요 항목`으로 이동

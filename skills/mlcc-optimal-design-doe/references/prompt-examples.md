@@ -26,7 +26,7 @@
 
 ### Example 2
 
-`reference lot AKB45A2 기준으로 타겟용량 10uF, 타겟 연마T 0.8, 연마L 1.6, 연마W 0.8, DC용량 10.5uF 타겟 맞추는 설계 추천해줘.`
+`reference lot AKB45A2 기준으로 타겟용량 10uF, 타겟 연마T 800um, 연마L 1600um, 연마W 800um, DC용량 10.5uF 타겟 맞추는 설계 추천해줘.`
 
 기대 동작:
 
@@ -81,11 +81,11 @@
 
 ### Example 7
 
-`2번 후보는 그대로 두고 target_grinding_t_avg만 0.75로 바꿔서 다시 보고싶어.`
+`2번 후보는 그대로 두고 target_grinding_t_avg만 750으로 바꿔서 다시 보고싶어.`
 
 기대 동작:
 
-- `target_grinding_t_avg=0.75`로 수정
+- `target_grinding_t_avg=750` (um)으로 수정
 - params는 2번 후보 설계값 기반 단일값 리스트
 - 재실행
 
@@ -97,9 +97,10 @@
 
 기대 동작:
 
+- **먼저** 시험 전압과 온도를 사용자에게 확인 (halt_voltage, halt_temperature). 전압은 스펙전압 대비 배수(예: 1.5Vr) 또는 절대 전압(예: 6.3V)으로 받고, 온도는 °C로 받는다.
 - `check_optimal_design`의 `ref_values`에서 설계값 가져옴
 - `reliability_simulation` 호출 (params는 **scalar**, list가 아님)
-- 통과확률 제시
+- 시험 조건과 함께 통과확률 제시
 
 ### Example 9
 
@@ -125,7 +126,7 @@
 
 ### Example 14
 
-`용량 10uF, 연마T 0.85mm 맞추면서 신뢰성 80% 이상 나오는 설계 찾아줘.`
+`용량 10uF, 연마T 850um 맞추면서 신뢰성 80% 이상 나오는 설계 찾아줘.`
 
 기대 동작:
 

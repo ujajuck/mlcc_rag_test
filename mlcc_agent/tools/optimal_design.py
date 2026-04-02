@@ -66,11 +66,11 @@ def _get_sim_final_size(datas):
 def optimal_design(
     tool_context: ToolContext,
     lot_id: str,
-    target_electrode_c_avg: float,
-    target_grinding_l_avg: float,
-    target_grinding_w_avg: float,
-    target_grinding_t_avg: float,
-    target_dc_cap: float,
+    target_electrode_c_avg: float,  # 타겟용량 (uF)
+    target_grinding_l_avg: float,  # 타겟 연마L사이즈 (um)
+    target_grinding_w_avg: float,  # 타겟 연마W사이즈 (um)
+    target_grinding_t_avg: float,  # 타겟 연마T사이즈 (um)
+    target_dc_cap: float,  # 타겟DC용량 (uF)
     active_layer: list[int],
     ldn_avr_value: list[float],
     cast_dsgn_thk: list[float],
@@ -83,9 +83,12 @@ def optimal_design(
     gap_sheet_thk: list[float],
 ) -> dict:
     """
-    Run DOE optimal design simulation. 
-    Calculates the top 5 optimal MLCC design candidates based on the reference LOT, 
+    Run DOE optimal design simulation.
+    Calculates the top 5 optimal MLCC design candidates based on the reference LOT,
     target specifications, and DOE input parameters.
+
+    Target units: electrode_c_avg/dc_cap in uF, grinding sizes (L/W/T) in um.
+    Params units: sizes in um, thicknesses in um, layer counts in EA.
     """
     simulation_ver = 'ver4'
     lot_detail = tool_context.state.get(lot_id)

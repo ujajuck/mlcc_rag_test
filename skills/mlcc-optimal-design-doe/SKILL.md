@@ -54,7 +54,7 @@ Reference LOT을 기준으로 최적설계(DOE)와 신뢰성 시뮬레이션을 
 
 ### 최적설계 패턴 (references/pattern-optimal.md)
 
-1. targets 5개 수집 (타겟용량, 타겟 연마L사이즈, 타겟 연마W사이즈, 타겟 연마T사이즈, 타겟DC용량)
+1. targets 5개 수집 (타겟용량(uF), 타겟 연마L사이즈(um), 타겟 연마W사이즈(um), 타겟 연마T사이즈(um), 타겟DC용량(uF))
 2. params 수집 — 초기 실행: ref lot 기준 ±범위 다중 포인트 리스트 / 재실행: 단일 값 리스트
 3. `optimal_design` 호출 → top 5 제시
 4. 공정검사표준 검증 후 결과 제시
@@ -62,9 +62,10 @@ Reference LOT을 기준으로 최적설계(DOE)와 신뢰성 시뮬레이션을 
 
 ### 신뢰성 패턴 (references/pattern-reliability.md)
 
-1. 설계값 확보 (직접 입력 또는 기존 optimal_design 후보에서 가져옴)
-2. `reliability_simulation` 호출 → 통과확률 반환
-3. 단일 설계 기준이므로 여러 조건을 비교하려면 반복 호출 필요
+1. 신뢰성 시험 조건 확보 — `halt_voltage`(시험 전압)와 `halt_temperature`(시험 온도)를 사용자에게 한 번 확인. 전압은 스펙전압 대비 배수(예: 1.5Vr) 또는 절대전압(V)으로 받는다.
+2. 설계값 확보 (직접 입력 또는 기존 optimal_design 후보에서 가져옴)
+3. `reliability_simulation` 호출 → 통과확률 반환
+4. 단일 설계 기준이므로 여러 조건을 비교하려면 반복 호출 필요
 
 ### 자율 반복 패턴 (references/pattern-autonomous.md)
 

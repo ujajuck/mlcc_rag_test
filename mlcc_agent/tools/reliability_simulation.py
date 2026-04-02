@@ -18,7 +18,7 @@ from ..utils.utils import make_json_serializable, validate_required_columns, sav
 
 RELIABILITY_API_URL = os.getenv("RELIABILITY_API_URL")
 
-async def reliability_predict(
+async def reliability_simulation(
     tool_context: ToolContext, 
     lot_id: str, 
     active_layer: float, 

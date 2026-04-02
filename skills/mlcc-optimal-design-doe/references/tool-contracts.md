@@ -85,9 +85,9 @@
 
 - `lot_id`: string
 - `target_electrode_c_avg`: float — 타겟용량 (uF)
-- `target_grinding_l_avg`: float — 타겟 연마L사이즈 (mm)
-- `target_grinding_w_avg`: float — 타겟 연마W사이즈 (mm)
-- `target_grinding_t_avg`: float — 타겟 연마T사이즈 (mm)
+- `target_grinding_l_avg`: float — 타겟 연마L사이즈 (um)
+- `target_grinding_w_avg`: float — 타겟 연마W사이즈 (um)
+- `target_grinding_t_avg`: float — 타겟 연마T사이즈 (um)
 - `target_dc_cap`: float — 타겟DC용량 (uF)
 - `active_layer`: list[int] — 액티브 층수 (EA)
 - `ldn_avr_value`: list[float] — 레이다운 평균
@@ -118,7 +118,7 @@
 
 ## reliability_simulation
 
-목적: 단일 설계 포인트에 대한 신뢰성 통과확률을 계산한다.
+목적: 단일 설계 포인트에 대한 장기신뢰성(HALT) 통과확률을 계산한다.
 
 입력:
 
@@ -132,12 +132,13 @@
 - `screen_mrgn_widh`: float — 스크린 마진 너비 (um)
 - `cover_sheet_thk`: float — 커버 두께 (um)
 - `total_cover_layer_num`: int — 상+하 커버층수 (EA)
-- `gap_sheet_thk`: float — 갭시트 두께 (um)
+- `halt_voltage`: float (optional, default 5) — 장기신뢰성 시험 전압. 스펙전압 대비 배수(예: 1.5Vr → Vr × 1.5 = 실제 전압)로 받거나 절대전압(V)으로 받는다. 숫자만 입력 (단위 생략).
+- `halt_temperature`: float (optional, default 5) — 장기신뢰성 시험 온도(°C). 숫자만 입력 (예: 85도 → 85).
 
 출력:
 
 - `design`: 입력된 설계값
-- `reliability_pass_rate`: float 0.0~1.0 (신뢰성 통과확률)
+- `reliability_pass_rate`: float (신뢰성 통과확률 %)
 
 사용 규칙:
 
@@ -145,6 +146,7 @@
 - 여러 설계 조건을 비교하려면 이 tool을 **여러 번 호출**한다.
 - optimal_design의 top 5 후보 각각에 대해 신뢰성을 확인할 때 유용하다.
 - lot_id 검증(check_optimal_design)이 선행되어야 한다.
+- **halt_voltage, halt_temperature는 사용자에게 반드시 한 번 확인받아야 한다.** 기본값(5)을 그대로 쓰지 말고, 사용자가 신뢰성 시뮬레이션을 요청하면 시험 전압과 온도를 먼저 물어본다. 전압은 "스펙전압 대비 배수(예: 1.5Vr)" 또는 "절대 전압(예: 6.3V)" 중 편한 방식으로 받는다.
 
 ## search_rag (공정검사표준 검증용)
 
