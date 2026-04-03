@@ -1,10 +1,20 @@
 #!/usr/bin/env python3
 """Ingest MLCC catalog JSONL chunks into ChromaDB.
 
+Supports dual-collection ingestion:
+  - "core" collection: part-number mapping tables only
+  - "context" collection: everything except mapping_core/mapping_support
+  - "full" collection: all chunks combined (legacy)
+
 Usage:
-    python scripts/ingest_to_chromadb.py                    # ingest (skip existing)
-    python scripts/ingest_to_chromadb.py --reset            # delete collection and re-ingest
-    python scripts/ingest_to_chromadb.py --jsonl path.jsonl  # use a custom JSONL file
+    # Ingest both core and context collections at once
+    python scripts/ingest_to_chromadb.py --mode dual --reset
+
+    # Ingest a single collection (legacy behavior)
+    python scripts/ingest_to_chromadb.py --jsonl path.jsonl --collection name
+
+    # Ingest full collection (legacy)
+    python scripts/ingest_to_chromadb.py --reset
 """
 
 import argparse
@@ -17,9 +27,15 @@ import chromadb
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_JSONL = PROJECT_ROOT / "mlcc_catalog_rag_chunks_v2_partnumber_focused.jsonl"
+DEFAULT_CORE_JSONL = PROJECT_ROOT / "mlcc_catalog_partnumber_core_v2.jsonl"
+DEFAULT_FOCUSED_JSONL = PROJECT_ROOT / "mlcc_catalog_rag_chunks_v2_partnumber_focused.jsonl"
 DEFAULT_DB_DIR = PROJECT_ROOT / "chroma_db"
-COLLECTION_NAME = "semco_mlcc_catalog_2025"
+
+COLLECTION_FULL = "semco_mlcc_catalog_2025"
+COLLECTION_CORE = "semco_mlcc_catalog_core_2025"
+COLLECTION_CONTEXT = "semco_mlcc_catalog_context_2025"
+
+_CORE_GROUPS = {"mapping_core", "mapping_support"}
 
 
 def load_chunks(jsonl_path: Path) -> list[dict]:
@@ -33,7 +49,7 @@ def load_chunks(jsonl_path: Path) -> list[dict]:
             try:
                 chunks.append(json.loads(line))
             except json.JSONDecodeError as e:
-                print(f"  ⚠️  Line {lineno}: JSON parse error — {e}")
+                print(f"  Warning: Line {lineno}: JSON parse error - {e}")
     return chunks
 
 
@@ -53,36 +69,8 @@ def flatten_metadata(meta: dict) -> dict:
     return flat
 
 
-def ingest(
-    jsonl_path: Path = DEFAULT_JSONL,
-    db_dir: Path = DEFAULT_DB_DIR,
-    reset: bool = False,
-) -> None:
-    """Main ingestion logic."""
-    # ── Load chunks ────────────────────────────────────────
-    print(f"📂 Loading chunks from: {jsonl_path}")
-    chunks = load_chunks(jsonl_path)
-    print(f"   Loaded {len(chunks)} chunks")
-
-    if not chunks:
-        print("   Nothing to ingest. Exiting.")
-        sys.exit(1)
-
-    # ── Connect to ChromaDB ────────────────────────────────
-    db_dir.mkdir(parents=True, exist_ok=True)
-    print(f"💾 ChromaDB persistent dir: {db_dir}")
-    client = chromadb.PersistentClient(path=str(db_dir))
-
-    # ── Reset if requested ─────────────────────────────────
-    if reset:
-        existing = [c.name for c in client.list_collections()]
-        if COLLECTION_NAME in existing:
-            client.delete_collection(COLLECTION_NAME)
-            print(f"   🗑️  Deleted existing collection '{COLLECTION_NAME}'")
-
-    # ── Get or create collection ───────────────────────────
-    # Use the default embedding function (all-MiniLM-L6-v2)
-    # Override via EMBEDDING_MODEL env var if needed
+def _get_or_create_collection(client, collection_name: str):
+    """Get or create a ChromaDB collection with optional custom embedding."""
     embedding_model = os.environ.get("EMBEDDING_MODEL")
     if embedding_model:
         print(f"   Using custom embedding model: {embedding_model}")
@@ -90,30 +78,23 @@ def ingest(
         ef = embedding_functions.SentenceTransformerEmbeddingFunction(
             model_name=embedding_model
         )
-        collection = client.get_or_create_collection(
-            name=COLLECTION_NAME,
-            embedding_function=ef,
+        return client.get_or_create_collection(
+            name=collection_name, embedding_function=ef,
         )
-    else:
-        collection = client.get_or_create_collection(name=COLLECTION_NAME)
+    return client.get_or_create_collection(name=collection_name)
 
-    # ── Ingest ─────────────────────────────────────────────
-    print(f"\n🚀 Ingesting into collection '{COLLECTION_NAME}'...")
 
+def _upsert_chunks(collection, chunks: list[dict], collection_name: str) -> None:
+    """Upsert chunks into a ChromaDB collection."""
     ids = []
     documents = []
     metadatas = []
 
     for chunk in chunks:
-        chunk_id = chunk["id"]
-        text = chunk.get("text", "")
-        meta = chunk.get("metadata", {})
+        ids.append(chunk["id"])
+        documents.append(chunk.get("text", ""))
+        metadatas.append(flatten_metadata(chunk.get("metadata", {})))
 
-        ids.append(chunk_id)
-        documents.append(text)
-        metadatas.append(flatten_metadata(meta))
-
-    # ChromaDB upsert: if the id already exists, it updates; otherwise inserts
     batch_size = 50
     for start in range(0, len(ids), batch_size):
         end = min(start + batch_size, len(ids))
@@ -124,10 +105,89 @@ def ingest(
         )
         print(f"   Upserted {end}/{len(ids)} chunks")
 
-    # ── Summary ────────────────────────────────────────────
     final_count = collection.count()
-    print(f"\n✅ Done! Collection '{COLLECTION_NAME}' now has {final_count} documents.")
+    print(f"   Done! Collection '{collection_name}' now has {final_count} documents.\n")
+
+
+def ingest_dual(db_dir: Path = DEFAULT_DB_DIR, reset: bool = False) -> None:
+    """Ingest into both core and context collections."""
+    # Load source files
+    print(f"Loading core chunks from: {DEFAULT_CORE_JSONL}")
+    core_chunks = load_chunks(DEFAULT_CORE_JSONL)
+    print(f"   Loaded {len(core_chunks)} core chunks")
+
+    print(f"Loading focused chunks from: {DEFAULT_FOCUSED_JSONL}")
+    all_chunks = load_chunks(DEFAULT_FOCUSED_JSONL)
+    print(f"   Loaded {len(all_chunks)} total chunks")
+
+    # Separate context chunks (exclude core groups)
+    context_chunks = [
+        c for c in all_chunks
+        if c.get("metadata", {}).get("search_group") not in _CORE_GROUPS
+    ]
+    print(f"   Filtered to {len(context_chunks)} context-only chunks")
+
+    if not core_chunks and not context_chunks:
+        print("   Nothing to ingest. Exiting.")
+        sys.exit(1)
+
+    # Connect to ChromaDB
+    db_dir.mkdir(parents=True, exist_ok=True)
+    print(f"ChromaDB persistent dir: {db_dir}")
+    client = chromadb.PersistentClient(path=str(db_dir))
+
+    # Reset if requested
+    if reset:
+        existing = [c.name for c in client.list_collections()]
+        for col_name in [COLLECTION_CORE, COLLECTION_CONTEXT, COLLECTION_FULL]:
+            if col_name in existing:
+                client.delete_collection(col_name)
+                print(f"   Deleted existing collection '{col_name}'")
+
+    # Ingest core collection
+    print(f"\nIngesting into '{COLLECTION_CORE}' ({len(core_chunks)} chunks)...")
+    core_col = _get_or_create_collection(client, COLLECTION_CORE)
+    _upsert_chunks(core_col, core_chunks, COLLECTION_CORE)
+
+    # Ingest context collection
+    print(f"Ingesting into '{COLLECTION_CONTEXT}' ({len(context_chunks)} chunks)...")
+    context_col = _get_or_create_collection(client, COLLECTION_CONTEXT)
+    _upsert_chunks(context_col, context_chunks, COLLECTION_CONTEXT)
+
+    print("Dual ingestion complete!")
     print(f"   DB location: {db_dir}")
+
+
+def ingest_single(
+    jsonl_path: Path = DEFAULT_FOCUSED_JSONL,
+    db_dir: Path = DEFAULT_DB_DIR,
+    collection_name: str = COLLECTION_FULL,
+    reset: bool = False,
+) -> None:
+    """Ingest into a single collection (legacy behavior)."""
+    print(f"Loading chunks from: {jsonl_path}")
+    chunks = load_chunks(jsonl_path)
+    print(f"   Loaded {len(chunks)} chunks")
+
+    if not chunks:
+        print("   Nothing to ingest. Exiting.")
+        sys.exit(1)
+
+    db_dir.mkdir(parents=True, exist_ok=True)
+    print(f"ChromaDB persistent dir: {db_dir}")
+    client = chromadb.PersistentClient(path=str(db_dir))
+
+    if reset:
+        existing = [c.name for c in client.list_collections()]
+        if collection_name in existing:
+            client.delete_collection(collection_name)
+            print(f"   Deleted existing collection '{collection_name}'")
+
+    print(f"\nIngesting into collection '{collection_name}'...")
+    col = _get_or_create_collection(client, collection_name)
+    _upsert_chunks(col, chunks, collection_name)
+
+    print(f"DB location: {db_dir}")
 
 
 def main():
@@ -135,15 +195,27 @@ def main():
         description="Ingest MLCC catalog chunks into ChromaDB"
     )
     parser.add_argument(
+        "--mode",
+        choices=["single", "dual"],
+        default="single",
+        help="'dual' creates core + context collections; 'single' is legacy behavior",
+    )
+    parser.add_argument(
         "--reset",
         action="store_true",
-        help="Delete and recreate the collection before ingesting",
+        help="Delete and recreate collection(s) before ingesting",
     )
     parser.add_argument(
         "--jsonl",
         type=Path,
-        default=DEFAULT_JSONL,
-        help=f"Path to JSONL file (default: {DEFAULT_JSONL.name})",
+        default=DEFAULT_FOCUSED_JSONL,
+        help=f"Path to JSONL file (single mode only, default: {DEFAULT_FOCUSED_JSONL.name})",
+    )
+    parser.add_argument(
+        "--collection",
+        type=str,
+        default=COLLECTION_FULL,
+        help=f"Collection name (single mode only, default: {COLLECTION_FULL})",
     )
     parser.add_argument(
         "--db-dir",
@@ -153,7 +225,15 @@ def main():
     )
     args = parser.parse_args()
 
-    ingest(jsonl_path=args.jsonl, db_dir=args.db_dir, reset=args.reset)
+    if args.mode == "dual":
+        ingest_dual(db_dir=args.db_dir, reset=args.reset)
+    else:
+        ingest_single(
+            jsonl_path=args.jsonl,
+            db_dir=args.db_dir,
+            collection_name=args.collection,
+            reset=args.reset,
+        )
 
 
 if __name__ == "__main__":
