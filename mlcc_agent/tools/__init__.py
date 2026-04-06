@@ -1,3 +1,4 @@
+from .get_first_lot_detail import get_first_lot_detail
 from .search_rag import search_rag
 from .active_lineup_lookup import active_lineup_lookup
 from .search_query_database import search_query_database

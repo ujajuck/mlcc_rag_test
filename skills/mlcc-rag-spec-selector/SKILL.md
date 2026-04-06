@@ -187,3 +187,11 @@ DB 조회 단계마다 다음을 포함한다.
 - `[N]개 조건을 완화했으나 여전히 0건입니다. 와일드카드를 넓히거나 추가 조건 변경이 필요합니다.`
 
 사용자가 카탈로그 근거를 초과하는 보증을 요구하면 보증은 거절하고, 가능한 최강의 카탈로그 기반 사전선정안을 제시한다.
+
+## 다음 단계: DOE 최적설계로 이어질 때
+
+이 스킬에서 인접기종을 찾아 chip_prod_id 목록을 획득한 후, 사용자가 DOE, 시뮬레이션, 최적설계, ref lot 선정 등을 요청하면 **mlcc-optimal-design-doe** 스킬의 워크플로우로 이어진다.
+
+**이어지는 흐름:**
+1. chip_prod_id_list를 `find_ref_lot_candidate`에 전달하여 **REF LOT(lot_id)**를 선정한다
+2. 선정된 lot_id로 `get_first_lot_detail` → `check_optimal_design` → `optimal_design` 순서로 진행한다
