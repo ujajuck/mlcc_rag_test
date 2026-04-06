@@ -24,9 +24,12 @@ import sys
 from pathlib import Path
 
 import chromadb
-
+import requests
+from dotenv import load_dotenv
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
+load_dotenv(PROJECT_ROOT / ".env")
+
 DEFAULT_CORE_JSONL = PROJECT_ROOT / "mlcc_catalog_partnumber_core_v2.jsonl"
 DEFAULT_FOCUSED_JSONL = PROJECT_ROOT / "mlcc_catalog_rag_chunks_v2_partnumber_focused.jsonl"
 DEFAULT_DB_DIR = PROJECT_ROOT / "chroma_db"
@@ -36,6 +39,60 @@ COLLECTION_CORE = "semco_mlcc_catalog_core_2025"
 COLLECTION_CONTEXT = "semco_mlcc_catalog_context_2025"
 
 _CORE_GROUPS = {"mapping_core", "mapping_support"}
+
+TEXT_EMBEDDING_MODEL_URL = os.getenv("TEXT_EMBEDDING_MODEL_URL", "")
+TEXT_EMBEDDING_MODEL_NAME = os.getenv("TEXT_EMBEDDING_MODEL_NAME", "/mnt/BGE-M3-KOR")
+TEXT_EMBEDDING_API_KEY = os.getenv("TEXT_EMBEDDING_API_KEY", "")
+TEXT_EMBEDDING_TIMEOUT_SEC = int(os.getenv("TEXT_EMBEDDING_TIMEOUT_SEC", "30"))
+
+
+class _APIEmbeddingFunction:
+    """Embedding function that calls an OpenAI-compatible embedding API."""
+
+    def __init__(self, url: str, model_name: str, api_key: str, timeout_sec: int = 30):
+        self.url = url
+        self.model_name = model_name
+        self.api_key = api_key
+        self.timeout_sec = timeout_sec
+
+    def __call__(self, input):
+        payload = {"input": input, "model": self.model_name}
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": self.api_key,
+        }
+        resp = requests.post(
+            self.url, json=payload, headers=headers, timeout=self.timeout_sec
+        )
+        resp.raise_for_status()
+        data = resp.json().get("data", [])
+        embeddings = [item.get("embedding", []) for item in data]
+        if len(embeddings) != len(input):
+            raise ValueError(
+                f"Embedding API returned {len(embeddings)} vectors for {len(input)} inputs"
+            )
+        return embeddings
+
+    @staticmethod
+    def name() -> str:
+        return "http_api_embedding"
+
+    @staticmethod
+    def build_from_config(config: dict):
+        return _APIEmbeddingFunction(
+            url=config.get("url", ""),
+            model_name=config.get("model_name", ""),
+            api_key=config.get("api_key", ""),
+            timeout_sec=int(config.get("timeout_sec", 30)),
+        )
+
+    def get_config(self) -> dict:
+        return {
+            "url": self.url,
+            "model_name": self.model_name,
+            "api_key": self.api_key,
+            "timeout_sec": self.timeout_sec,
+        }
 
 
 def load_chunks(jsonl_path: Path) -> list[dict]:
@@ -71,18 +128,23 @@ def flatten_metadata(meta: dict) -> dict:
 
 def _get_or_create_collection(client, collection_name: str):
     """Get or create a ChromaDB collection with optional custom embedding."""
-    embedding_model = os.environ.get("EMBEDDING_MODEL")
-    if embedding_model:
-        print(f"   Using custom embedding model: {embedding_model}")
-        from chromadb.utils import embedding_functions
-        ef = embedding_functions.SentenceTransformerEmbeddingFunction(
-            model_name=embedding_model
+    embedding_url = os.environ.get("TEXT_EMBEDDING_MODEL_URL", "").strip()
+    embedding_name = os.environ.get("TEXT_EMBEDDING_MODEL_NAME", "").strip()
+    embedding_key = os.environ.get("TEXT_EMBEDDING_API_KEY", "").strip()
+    embedding_timeout = int(os.environ.get("TEXT_EMBEDDING_TIMEOUT_SEC", "30"))
+    if embedding_url and embedding_name and embedding_key:
+        print(
+            f"   Using embedding API model: {embedding_name} ({embedding_url})"
+        )
+        ef = _APIEmbeddingFunction(
+            url=embedding_url,
+            model_name=embedding_name,
+            api_key=embedding_key,
+            timeout_sec=embedding_timeout,
         )
         return client.get_or_create_collection(
             name=collection_name, embedding_function=ef,
         )
-    return client.get_or_create_collection(name=collection_name)
-
 
 def _upsert_chunks(collection, chunks: list[dict], collection_name: str) -> None:
     """Upsert chunks into a ChromaDB collection."""
