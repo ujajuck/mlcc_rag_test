@@ -43,14 +43,18 @@
 
 출력:
 
-- `충족인자`: dict — {인자명: 현재값} 형태로 reference에 이미 존재하는 인자와 그 값
-- `부족인자`: list — reference에 없어서 현재 이 lot_id로는 시뮬레이션을 진행할 수 없는 인자 이름 목록
-- `ref_values`: dict — 전체 인자 현황 (충족인자는 값, 부족인자는 null)
+- `status`: "success" (한 개 이상 버전 충족) 또는 "warning" (모든 버전에 부족인자 존재)
+- `fully_satisfied_versions`: list — 부족인자가 없는 버전 리스트 (예: `["ver1", "ver3"]`). 이 버전들로 시뮬레이션 진행 가능.
+- `partially_missing_versions`: dict — 부족인자가 있는 버전과 해당 부족인자 (예: `{"ver2": ["ldn_avr_value"], "ver4": ["gap_sheet_thk"]}`)
+- `충족인자`: dict — 버전별 {인자명: 현재값} (예: `{"ver1": {"cast_dsgn_thk": 4.8, ...}, "ver2": {...}}`)
+- `부족인자`: dict — 버전별 부족인자 리스트 (예: `{"ver1": [], "ver2": ["ldn_avr_value"]}`)
 
 사용 규칙:
 
 - `get_first_lot_detail` 이후에 호출한다. state에 lot 데이터가 없으면 에러를 반환한다.
-- `부족인자`가 있으면 두 가지 선택지를 제시한다:
+- **`fully_satisfied_versions`가 하나라도 있으면 시뮬레이션 진행 가능**이다. 모든 버전이 충족될 때까지 기다릴 필요 없다.
+- 충족된 버전으로 시뮬레이션을 진행하고, 나머지 버전의 부족인자는 참고 정보로 안내한다.
+- 모든 버전에 부족인자가 있을 때만(`fully_satisfied_versions`가 빈 리스트) 사용자에게 선택지를 제시한다:
   1. 사용자가 값을 직접 제공 → `update_lot_reference`로 반영
   2. 다른 `lot_id`로 교체
 - `충족인자`의 값은 이후 params 기본값 제안에 활용할 수 있다.
@@ -74,7 +78,7 @@
 
 - `check_optimal_design` 이후에만 호출한다.
 - 사용자가 부족인자 값을 제공하면 이 tool로 반영한다.
-- `remaining_부족인자`가 비어야 시뮬레이션을 진행할 수 있다.
+- 이미 `fully_satisfied_versions`가 있으면 부족인자 보충 없이도 시뮬레이션을 진행할 수 있다. 보충은 추가 버전 활성화를 위한 것이다.
 - 한 번에 모든 부족인자를 채울 필요는 없다. 여러 번 호출해도 된다.
 
 ## optimal_design

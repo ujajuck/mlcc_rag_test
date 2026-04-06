@@ -89,4 +89,4 @@ class DatabaseHandler:
             # 작업이 끝나면 무조건 풀에 반납
             DBPoolManager.release_connection(conn)
 
-db = DBHandler()
+db = DatabaseHandler()

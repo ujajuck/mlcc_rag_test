@@ -66,21 +66,26 @@ def check_optimal_design(tool_context: ToolContext, lot_id: str) -> dict:
             fulfilled_info[version] = fulfilled_cols
 
     # 4. 결과 상태 결정 및 Context 저장
-    has_missing = any(len(cols) > 0 for cols in missing_info.values())
-    status = "warning" if has_missing else "success"
-    
+    # 한 개 이상의 버전이 부족인자 0이면 시뮬레이션 진행 가능 (success)
+    fully_satisfied = [v for v, cols in missing_info.items() if len(cols) == 0]
+    partially_missing = {v: cols for v, cols in missing_info.items() if len(cols) > 0}
+    status = "success" if fully_satisfied else "warning"
+
     # state 저장 구조 최적화
     if 'validation' not in tool_context.state:
         tool_context.state['validation'] = {}
-        
+
     tool_context.state['validation'][lot_id] = {
-        "충족인자": fulfilled_info, 
-        "부족인자": missing_info
+        "충족인자": fulfilled_info,
+        "부족인자": missing_info,
+        "fully_satisfied_versions": fully_satisfied,
     }
 
     return {
         "status": status,
         "lot_id": lot_id,
+        "fully_satisfied_versions": fully_satisfied,
+        "partially_missing_versions": partially_missing,
         "부족인자": missing_info,
         "충족인자": fulfilled_info,
     }

@@ -28,42 +28,50 @@ check_optimal_design(lot_id="AKB45A2")
 반환 예시:
 ```json
 {
-  "충족인자": {"cast_dsgn_thk": 4.8, "active_layer": 158, "screen_mrgn_leng": 80, "screen_chip_size_leng": 1550},
-  "부족인자": ["ldn_avr_value", "cover_sheet_thk", "gap_sheet_thk", "screen_mrgn_widh"],
-  "ref_values": {"cast_dsgn_thk": 4.8, "active_layer": 158, ..., "ldn_avr_value": null, ...}
+  "status": "success",
+  "lot_id": "AKB45A2",
+  "fully_satisfied_versions": ["ver1", "ver3"],
+  "partially_missing_versions": {
+    "ver2": ["ldn_avr_value", "cover_sheet_thk"],
+    "ver4": ["gap_sheet_thk", "screen_mrgn_widh"]
+  },
+  "충족인자": {"ver1": {"cast_dsgn_thk": 4.8, "active_layer": 158, ...}, ...},
+  "부족인자": {"ver1": [], "ver2": ["ldn_avr_value", "cover_sheet_thk"], ...}
 }
 ```
 
 ### 4. 결과 해석
 
-**부족인자가 없으면**: 바로 시뮬레이션 진행 가능. 다음 패턴(최적설계 또는 신뢰성)으로 넘어간다.
+ver1~ver4는 각각 다른 종류의 시뮬레이션이다. **한 개 이상의 버전이 부족인자 없이 완전하면(`fully_satisfied_versions`가 비어있지 않으면) 해당 버전으로 시뮬레이션을 진행할 수 있다.**
 
-**부족인자가 있으면**: 사용자에게 두 가지 선택지를 제시한다.
+**`fully_satisfied_versions`가 있으면 (status: success)**:
+- 충족된 버전으로 바로 시뮬레이션 진행 가능. 다음 패턴(최적설계 또는 신뢰성)으로 넘어간다.
+- 나머지 버전의 부족인자는 참고 정보로 사용자에게 안내한다.
+- 사용자가 원하면 부족인자를 채워서 추가 버전도 활성화할 수 있다.
 
-응답 예시:
+**모든 버전에 부족인자가 있으면 (status: warning)**:
+- 사용자에게 두 가지 선택지를 제시한다: 값을 직접 제공하거나, 다른 lot_id로 교체.
+
+응답 예시 (일부 버전 충족):
 
 ```
 reference LOT AKB45A2 검증 결과:
 
-✅ 충족인자:
-- cast_dsgn_thk (Sheet T 두께): 4.8 um
-- active_layer (액티브 층수): 158 EA
-- screen_mrgn_leng (스크린 마진 길이): 80 um
-- screen_chip_size_leng (스크린 길이): 1550 um
+✅ 시뮬레이션 진행 가능 버전: ver1, ver3
+  - ver1 충족인자: cast_dsgn_thk=4.8um, active_layer=158EA, ...
+  - ver3 충족인자: ...
 
-❌ 부족인자 (값 없음):
-- ldn_avr_value (레이다운 평균)
-- cover_sheet_thk (커버 두께)
-- gap_sheet_thk (갭시트 두께)
-- screen_mrgn_widh (스크린 마진 너비)
+⚠️ 추가 활성화 가능 버전 (부족인자 보충 필요):
+  - ver2 부족: ldn_avr_value, cover_sheet_thk
+  - ver4 부족: gap_sheet_thk, screen_mrgn_widh
 
-부족인자에 원하시는 값을 알려주시면 반영하겠습니다.
-또는 다른 lot_id로 교체할 수도 있습니다.
+ver1, ver3 기준으로 시뮬레이션을 진행할까요?
+나머지 버전의 부족인자를 채우시면 해당 버전도 추가로 진행할 수 있습니다.
 ```
 
 ### 5. 부족인자 값 반영
 
-사용자가 값을 제공하면 `update_lot_reference`를 호출한다.
+사용자가 추가 버전 활성화를 원해서 값을 제공하면 `update_lot_reference`를 호출한다.
 
 ```
 update_lot_reference(
@@ -72,8 +80,8 @@ update_lot_reference(
 )
 ```
 
-반환에서 `remaining_부족인자`가 비어있으면 시뮬레이션 진행 가능.
-아직 남아있으면 남은 인자를 다시 요청한다.
+반환에서 `remaining_부족인자`가 줄어들면 추가 버전이 활성화된다.
+이미 충족된 버전이 있으면 부족인자 보충을 기다리지 않고 바로 시뮬레이션을 진행할 수 있다.
 
 ### 6. 부분 입력 허용
 
