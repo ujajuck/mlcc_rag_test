@@ -106,8 +106,8 @@
 
 - `search_rag`
   - 카탈로그 chunk 검색
-  - 현재 로컬 구현은 JSONL 기반 mock
-  - 운영 의도는 vector DB 검색
+  - ChromaDB 컬렉션(`context` / `core` / `full`) 기반 검색
+  - 내부 embedding API를 사용해 vector query 수행
 - `active_lineup_lookup`
   - `chip_prod_id` 패턴으로 현재 흐르는 제품 검색
 - `search_query_database`
@@ -214,7 +214,7 @@
 
 현재 레포는 운영 구조와 로컬 개발용 mock 구현이 함께 들어 있다.
 
-- `search_rag` 는 현재 JSONL 키워드 검색 mock 이다.
+- `search_rag` 는 ChromaDB + embedding API 기반 구현이다.
 - `search_screen_plate`, `search_running_chips`, `dispatch_stacking_order` 는 환경변수 존재 여부에 따라 production/mock 경로를 나눈다.
 - 일부 DOE / 신뢰성 tool 은 외부 API URL 환경변수에 의존한다.
 
