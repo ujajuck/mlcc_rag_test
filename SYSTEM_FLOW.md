@@ -225,14 +225,17 @@
 
 ## 10. 흐름 다이어그램
 
-흐름 다이어그램의 mermaid 원문은 루트의 `mermaid.md` 에 분리해 둔다.
+흐름 다이어그램의 mermaid 원문은 루트의 `SYSTEM_FLOW_DIAGRAM.md` 에 분리해 둔다.
 
 - 설명이 바뀌면 `SYSTEM_FLOW.md` 를 수정한다.
-- 단계 구조나 연결 관계가 바뀌면 `mermaid.md` 도 함께 수정한다.
+- 단계 구조, 주요 입력/출력, 외부 의존성, 사용자 확인 지점이 바뀌면 `SYSTEM_FLOW_DIAGRAM.md` 도 함께 수정한다.
+- `SYSTEM_FLOW_DIAGRAM.md` 는 최소 2개의 관점을 유지한다.
+  - 상위 파이프라인 개요
+  - 상세 I/O 및 외부 의존성
 
 ## 11. 이 문서를 같이 수정해야 하는 변경
 
-아래 변경이 있으면 이 문서와 `mermaid.md` 를 함께 업데이트한다.
+아래 변경이 있으면 이 문서와 `SYSTEM_FLOW_DIAGRAM.md` 를 함께 업데이트한다.
 
 - 새로운 skill 추가 / 제거
 - skill 간 선후행 순서 변경
