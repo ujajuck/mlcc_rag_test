@@ -1,12 +1,12 @@
 # 카탈로그 코드북
 
-사용자 제약조건을 삼성전기 MLCC 카탈로그 개념 및 청크 조회 타깃에 매핑할 때 이 reference를 참조한다.
+사용자 제약조건을 삼성전기 MLCC 카탈로그 개념 및 현재 검색 정책에 매핑할 때 이 reference를 참조한다.
 
 ## 목차
 
 - 출처 범위
 - 진실성 정책
-- 청크 라우팅
+- 조회 정책
 - 입력 정규화
 - 핵심 코드 맵
 - 용량 코드 및 표준 명목 규칙
@@ -21,7 +21,8 @@
 - Part I: Commercial / Industrial
 - 주요 프로젝트 자산:
   - `MLCC_2512 .pdf`
-  - `mlcc_catalog_rag_chunks.jsonl`
+  - `mlcc_catalog_partnumber_core_v2.jsonl`
+  - `mlcc_catalog_rag_chunks_v2_partnumber_focused.jsonl`
   - `mlcc_catalog_rag_master_ko.md`
 
 ## 진실성 정책
@@ -45,16 +46,19 @@
 - 정확한 8~11번째 코드
 - 정확한 주문 가능 라인업 또는 재고 상태
 
-`caution_characteristics` 그래프는 샘플 가이드로만 취급한다.
+`characteristics_reference` 그래프와 예시는 샘플 가이드로만 취급한다.
 
-## 청크 라우팅
+## 조회 정책
 
-- `MLCC-002` ~ `MLCC-004`: 품번 체계, 사이즈, 온도특성 코드, 용량 코드, 편차, 전압, 두께, 설계, 제어, 포장
-- `MLCC-005`: 신뢰성 등급 비교
-- `MLCC-006` ~ `MLCC-012`: 제품 패밀리
-- `MLCC-013` ~ `MLCC-014`: 신제품 예시 파트
-- `MLCC-020` ~ `MLCC-021`: DC 바이어스, AC 전압, 임피던스, 에이징, 주의 특성
-- `MLCC-031` ~ `MLCC-032`: 사용 조건, 보관, 면책
+현재 운영 기준의 `search_rag`는 `collection`, `search_group`, `position`, `chunk_type` metadata로 조회 범위를 좁힐 수 있다.
+
+- positions 1~7 코드 매핑: 이 문서에서 직접 해석한다. `search_rag`의 `mapping_core`, `mapping_support` 조회는 일반 선정 경로에서 사용하지 않는다.
+- 패밀리 개요, 신뢰성 맥락, 신제품 예시 파트: `collection="context"`, `search_group="family_reference"`
+- 패밀리별 치수 row, 특수 구조 size/thickness 검토: `collection="context"`, `search_group="dimension_reference"`
+- DC bias, AC voltage, TCC, self-heating, impedance, aging 같은 특성 참고: `collection="context"`, `search_group="characteristics_reference"`
+- derating, applied voltage, surge/ESD, vibration, mounting/handling 같은 주의 사항: `collection="context"`, `search_group="caution_reference"`
+- `mapping_support`는 E-series 보조표, reliability level 요약 같은 유지보수성 높은 보조 청크가 있으나, 일반 스킬 경로에서는 이 문서의 정리본을 우선 사용한다.
+
 
 ## 입력 정규화
 
