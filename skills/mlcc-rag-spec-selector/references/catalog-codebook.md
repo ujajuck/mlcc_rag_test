@@ -262,7 +262,7 @@ Class II:
 
 ### 표준 명목 시리즈
 
-요청 명목이 표준이 아닐 때 `MLCC-003`의 카탈로그 명목 시리즈를 사용한다.
+요청 명목이 표준이 아닐 때 아래 카탈로그 표준 명목 시리즈를 사용한다.
 
 - `E-3 = 1.0, 2.2, 4.7`
 - `E-6 = 1.0, 1.5, 2.2, 3.3, 4.7, 6.8`
@@ -339,7 +339,7 @@ Class II:
 
 ### 2단계: 두께 코드 필터링
 
-사이즈 코드 통과 후, `MLCC-003`의 두께 코드를 T 최대치와 비교한다.
+사이즈 코드 통과 후, 아래 두께 코드 표를 T 최대치와 비교한다.
 
 예시:
 
@@ -350,11 +350,11 @@ Class II:
 
 특수 패밀리는 공칭 사이즈 코드 치수보다 우선하는 자체 치수 테이블을 가진다. 사이즈 후보가 통과한다고 결론 내리기 전에 패밀리별 reference 청크를 확인한다.
 
-- `LSC -> MLCC-009`
-- `MFC -> MLCC-008`
-- `High Bending Strength -> MLCC-010`
-- `Low Acoustic Noise -> MLCC-011`
-- `Low ESL -> MLCC-012`
+- `LSC -> dimension_reference에서 해당 family 치수 row 확인`
+- `MFC -> dimension_reference에서 해당 family 치수 row 확인`
+- `High Bending Strength -> dimension_reference에서 해당 family 치수 row 확인`
+- `Low Acoustic Noise -> dimension_reference에서 해당 family 치수 row 확인`
+- `Low ESL -> dimension_reference에서 해당 family 치수 row 확인`
 
 Normal 패밀리 후보는 공칭 사이즈 + 두께 코드로 1차 필터링 후, 정확한 물리적 외형은 데이터시트 검증이 필요하다.
 
