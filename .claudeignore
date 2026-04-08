@@ -1,0 +1,61 @@
+# --- Google ADK Specifics ---
+# 빌드 결과물 및 임시 파일
+bin/
+gen/
+obj/
+*.apk
+*.ap_
+*.dex
+*.class
+
+# --- Android Build System ---
+# Gradle 및 빌드 캐시
+.gradle/
+build/
+captures/
+.externalNativeBuild/
+.cxx/
+
+# --- IDE & Editor Settings ---
+# IntelliJ / Android Studio
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# VS Code / Eclipse
+.vscode/
+.settings/
+.project
+.classpath
+.metadata/
+
+# --- Version Control ---
+.git/
+.gitignore
+.gitmodules
+
+# --- Hardware / Firmware (Arduino/C++ side) ---
+# Arduino 빌드 부산물 및 라이브러리 중복 방지
+*.o
+*.a
+*.so
+*.out
+applet/
+*.hex
+*.elf
+*.eep
+
+# --- OS & System Files ---
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Documentation & Media ---
+# AI가 읽을 필요가 없는 대용량 미디어 파일
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.pdf
+*.mp4
