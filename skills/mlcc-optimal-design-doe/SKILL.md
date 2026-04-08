@@ -14,8 +14,25 @@ Reference LOT을 기준으로 최적설계(DOE)와 신뢰성 시뮬레이션을 
 | **chip_prod_id** | 제품 기종 코드 | `CL32A106KOY8NNE` (15~16자, CL로 시작) | 카탈로그 검색, 인접기종 탐색 |
 | **lot_id** | 제조 LOT 식별자 | `AKB45A2` (짧은 영숫자) | DOE 시뮬레이션의 기준 LOT |
 
-- **이전 단계 (spec-selector에서 넘어올 때)**: spec-selector가 인접기종 검색으로 chip_prod_id_list를 제공한다. 이것은 lot_id가 아니므로 반드시 `find_ref_lot_candidate`로 변환해야 한다.
-- **다음 단계 (dispatch로 넘어갈 때)**: 최종 설계값이 확정되면 design-dispatch 스킬로 진행할 수 있다. 전달할 값: active_layer, cast_dsgn_thk, electrode_c_avg, ldn_avr_value, screen 치수, cover_sheet_thk + chip_prod_id, lot_id.
+## 세션 상태 읽기/쓰기
+
+> 필드 정의와 타입/단위는 `../session-state.md`를 참고한다.
+
+**읽는 필드** (이전 스킬에서 전달됨):
+- `chip_prod_id_list` ← mlcc-rag-spec-selector 출력. `find_ref_lot_candidate` 입력으로 사용.
+
+**쓰는 필드** (이 스킬이 갱신):
+- `lot_id`, `chip_prod_id` — REF LOT 확정 후 기록
+- `targets` — 사용자로부터 수집 후 기록
+- `params` — DOE 탐색 범위 또는 재실행 단일값 기록
+- `top_candidates` — optimal_design 결과 기록
+- `halt_voltage`, `halt_temperature` — 사용자 확인 후 기록, 세션 내 유지
+- `final_design` — 사용자가 후보를 확정하면 기록 → mlcc-design-dispatch가 읽음
+
+**상태 초기화 규칙**: 새 lot_id가 들어오면 targets, params, top_candidates를 초기화한다. halt 조건은 유지한다.
+
+**이전 단계 (spec-selector에서 넘어올 때)**: chip_prod_id_list는 lot_id가 아니므로 반드시 `find_ref_lot_candidate`로 변환해야 한다.
+**다음 단계 (dispatch로 넘어갈 때)**: 사용자가 후보를 확정하면 final_design을 기록하고 mlcc-design-dispatch로 진행한다.
 
 ## 실행 원칙
 
@@ -134,7 +151,7 @@ params는 **scalar** (`optimal_design`의 list와 다름). halt_voltage/halt_tem
 - params는 약 10개이므로 너무 길면 두세 묶음으로 나눠 묻되, 이미 있는 값은 제외한다.
 - 질문은 항상 "지금 실행을 위해 무엇이 빠졌는지" 기준으로만 한다.
 - 결과를 보여줄 때는 각 후보의 번호, 핵심 설계값, 예측 결과, target과의 차이를 함께 요약한다.
-- 대화 맥락에 최신 lot_id, targets, params, top_candidates가 있으면 별도 질문 없이 그 값을 그대로 사용한다.
+- 세션 상태에 이미 기록된 값(lot_id, targets, params, top_candidates)은 다시 묻지 않는다. 사용자가 변경을 명시할 때만 해당 필드만 교체한다.
 
 ## 실패 처리
 
