@@ -75,7 +75,10 @@ Reference LOT을 기준으로 최적설계(DOE)와 신뢰성 시뮬레이션을 
 - `references/pattern-reliability.md`: halt 조건 확인 절차, 설계값 경로
 - `references/pattern-autonomous.md`: 자율 반복 4가지 패턴(A~D)
 - `references/pattern-convergence.md`: 수렴 탐색 4-Phase 방법론
-- `references/prompt-examples.md`: 한국어 질의/응답 예시
+- `references/prompt-examples.md`: 예시 파일 인덱스
+  - `references/examples-lot-doe.md`: LOT 검증, 부족인자, 최적설계, 재실행 예시
+  - `references/examples-reliability.md`: 신뢰성 시뮬레이션, 자율 반복 예시
+  - `references/examples-convergence.md`: 수렴 탐색 예시
 
 ## 패턴 라우팅
 
@@ -97,7 +100,7 @@ Reference LOT을 기준으로 최적설계(DOE)와 신뢰성 시뮬레이션을 
 
 ### REF LOT 선정 패턴
 
-> 실행 전 `references/pattern-ref-lot-selection.md`를 반드시 참고한다.
+> 실행 전 `references/pattern-ref-lot-selection.md`를 반드시 참고한다. 예시: `references/examples-lot-doe.md` Example 1~2.
 
 1. 인접기종 chip_prod_id 목록 확보
 2. `find_ref_lot_candidate(chip_prod_id_list, ...)` 호출 → 11개 품질지표 기반 상위 LOT 반환
@@ -117,25 +120,25 @@ Reference LOT을 기준으로 최적설계(DOE)와 신뢰성 시뮬레이션을 
 
 ### 최적설계 패턴
 
-> 실행 전 `references/pattern-optimal.md`와 `references/tool-contracts.md`를 반드시 참고한다.
+> 실행 전 `references/pattern-optimal.md`와 `references/tool-contracts.md`를 반드시 참고한다. 예시: `references/examples-lot-doe.md` Example 6~7.
 
 targets 5개(scalar) 수집 → params 10개(**list**) 수집 → `optimal_design` 호출 → 공정검사표준 검증 → top 5 제시 → 필요 시 override 재실행. params 리스트 생성법(범위·포인트 수)과 rerun 규칙은 `pattern-optimal.md`에 있다.
 
 ### 신뢰성 패턴
 
-> 실행 전 `references/pattern-reliability.md`와 `references/tool-contracts.md`를 반드시 참고한다.
+> 실행 전 `references/pattern-reliability.md`와 `references/tool-contracts.md`를 반드시 참고한다. 예시: `references/examples-reliability.md` Example 8~10.
 
 params는 **scalar** (`optimal_design`의 list와 다름). halt_voltage/halt_temperature는 **기본값(5) 사용 금지** — 반드시 사용자에게 먼저 확인한다. 설계값 확보 경로(직접 입력/후보 활용/ref lot 기준)와 반복 비교 호출 방법은 `pattern-reliability.md`에 있다.
 
 ### 자율 반복 패턴
 
-> 실행 전 `references/pattern-autonomous.md`를 반드시 참고한다.
+> 실행 전 `references/pattern-autonomous.md`를 반드시 참고한다. 예시: `references/examples-reliability.md` Example 11~13.
 
 단일 목표 최적화 또는 단순 비교 요청에 사용한다. "신뢰성 좋은 설계 찾아줘", "여러 조건 비교해줘" 등. 최적설계와 신뢰성을 자유롭게 조합하며, 4가지 패턴(A~D)을 reference에서 확인한 후 적절한 조합을 사용한다.
 
 ### 수렴 탐색 패턴
 
-> 실행 전 `references/pattern-convergence.md`를 반드시 참고한다. 4-Phase 방법론과 파라미터 조정 룰 테이블이 reference에 있다.
+> 실행 전 `references/pattern-convergence.md`를 반드시 참고한다. 4-Phase 방법론과 파라미터 조정 룰 테이블이 reference에 있다. 예시: `references/examples-convergence.md`.
 
 사용자가 **타겟 적중 + 신뢰성 통과를 동시에** 요구하면 이 패턴을 사용한다.
 
