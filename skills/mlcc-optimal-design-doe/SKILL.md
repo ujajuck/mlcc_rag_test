@@ -102,33 +102,13 @@ Reference LOT을 기준으로 최적설계(DOE)와 신뢰성 시뮬레이션을 
 
 > 실행 전 `references/pattern-optimal.md`와 `references/tool-contracts.md`를 반드시 참고한다.
 
-**`optimal_design` 핵심 입력:**
-- **targets** (5개, scalar): `target_electrode_c_avg`(uF), `target_grinding_l_avg`(um), `target_grinding_w_avg`(um), `target_grinding_t_avg`(um), `target_dc_cap`(uF)
-- **params** (10개, list): `active_layer`, `ldn_avr_value`, `cast_dsgn_thk`, `screen_chip_size_leng`, `screen_mrgn_leng`, `screen_chip_size_widh`, `screen_mrgn_widh`, `cover_sheet_thk`, `total_cover_layer_num`, `gap_sheet_thk`
-
-**params 형식:**
-- 초기 실행(DOE 탐색): ref lot 기준 ±범위 다중 포인트 리스트. 예: cast_dsgn_thk=5.0, ±5% 11포인트 → `[4.75, 4.80, 4.85, 4.90, 4.95, 5.00, 5.05, 5.10, 5.15, 5.20, 5.25]`
-- 재실행(특정 후보 기반): 단일 값 리스트 `[value]`. 예: 3번 후보에서 cast_dsgn_thk만 5.2로 → `cast_dsgn_thk: [5.2]`
-
-1. targets 5개 수집 (빠진 값만 한 번에 묻는다)
-2. params 수집 — 위 형식에 맞게 리스트로 구성
-3. `optimal_design` 호출 → top 5 제시
-4. 공정검사표준 검증 후 결과 제시
-5. 사용자 수정 지시 시 override 재실행
+targets 5개(scalar) 수집 → params 10개(**list**) 수집 → `optimal_design` 호출 → 공정검사표준 검증 → top 5 제시 → 필요 시 override 재실행. params 리스트 생성법(범위·포인트 수)과 rerun 규칙은 `pattern-optimal.md`에 있다.
 
 ### 신뢰성 패턴
 
 > 실행 전 `references/pattern-reliability.md`와 `references/tool-contracts.md`를 반드시 참고한다.
 
-**`reliability_simulation` 핵심 입력:**
-- 설계값은 **scalar** (list 아님) — `optimal_design`과 다르다
-- `halt_voltage`: 시험 전압. **기본값을 사용하지 말고 반드시 사용자에게 한 번 확인한다.** 배수(예: 1.5Vr) 또는 절대전압(V)으로 받는다.
-- `halt_temperature`: 시험 온도(°C). **마찬가지로 사용자에게 확인한다.**
-
-1. halt_voltage, halt_temperature를 사용자에게 한 번 확인
-2. 설계값 확보 (직접 입력 또는 기존 optimal_design 후보에서 가져옴)
-3. `reliability_simulation` 호출 → 통과확률 반환
-4. 여러 조건 비교 시 반복 호출 필요
+params는 **scalar** (`optimal_design`의 list와 다름). halt_voltage/halt_temperature는 **기본값(5) 사용 금지** — 반드시 사용자에게 먼저 확인한다. 설계값 확보 경로(직접 입력/후보 활용/ref lot 기준)와 반복 비교 호출 방법은 `pattern-reliability.md`에 있다.
 
 ### 자율 반복 패턴
 
