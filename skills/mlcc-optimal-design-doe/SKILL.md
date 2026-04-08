@@ -38,40 +38,14 @@ Reference LOT을 기준으로 최적설계(DOE)와 신뢰성 시뮬레이션을 
 - **②③은 절대 생략 불가.** ②를 안 하면 ③이 에러, ③을 안 하면 ④가 에러난다.
 - ④가 에러나면: 에러 메시지 확인 → ②③ 재실행 → ④ 재실행. **에러 결과를 성공으로 보고하지 마라.**
 
-## Tool 입출력 계약
+## Tool 입출력 계약 요약
 
-### get_first_lot_detail
-- **입력**: `lot_id` (string) — 반드시 lot_id를 넣는다. chip_prod_id를 넣으면 에러.
-- **출력**: `status`("success"/"error"), `ref_lot_design_info`(설계 컬럼 정보), `hint`(다음 단계 안내)
-- **역할**: lot의 설계정보를 세션 state에 저장. 이후 check_optimal_design이 이 state를 참조.
+전체 계약은 `references/tool-contracts.md`에 있다. 아래는 혼동하기 쉬운 핵심 주의사항만 요약한다.
 
-### check_optimal_design
-- **입력**: `lot_id` (string)
-- **출력**: `status`("success"/"warning"), `fully_satisfied_versions`(리스트), `partially_missing_versions`(딕셔너리), `충족인자`, `부족인자`
-- **규칙**: `fully_satisfied_versions`가 **한 개라도** 있으면 시뮬레이션 진행 가능. 모든 버전 충족을 기다리지 않는다.
-
-### find_ref_lot_candidate
-- **입력**: `chip_prod_id_list` (List[str], 필수) + 선택 필터(cutting_grade_filter, measure_grade_filter, exclude_screen_codes, exclude_screen_types, require_reliability_pass, top_k)
-- **출력**: 상위 LOT 목록 (lot_id 포함) 또는 fail
-- **역할**: chip_prod_id → lot_id 변환의 유일한 경로
-
-### optimal_design
-- **입력**: `lot_id`(str), targets 5개(**scalar**), params 10개(**list**)
-- **targets**: `target_electrode_c_avg`(uF), `target_grinding_l_avg`(um), `target_grinding_w_avg`(um), `target_grinding_t_avg`(um), `target_dc_cap`(uF)
-- **params**: `active_layer`, `ldn_avr_value`, `cast_dsgn_thk`, `screen_chip_size_leng`, `screen_mrgn_leng`, `screen_chip_size_widh`, `screen_mrgn_widh`, `cover_sheet_thk`, `total_cover_layer_num`, `gap_sheet_thk`
-- **params 형식**: 초기 DOE = 다중포인트 리스트 `[4.75, 4.80, ..., 5.25]`, 재실행 = 단일값 `[value]`
-- **출력**: `top_candidates` (5개 후보, 각각 rank/design/predicted/gap)
-
-### reliability_simulation
-- **입력**: `lot_id`(str), params 10개(**scalar, list 아님!**), `halt_voltage`(float), `halt_temperature`(float)
-- **params와 optimal_design의 차이**: optimal_design은 list, reliability_simulation은 scalar. 절대 혼동하지 마라.
-- **halt_voltage/halt_temperature**: **기본값(5)을 쓰지 마라.** 사용자에게 반드시 한 번 확인받아라. "시험 전압은 몇 배수(예: 1.5Vr) 또는 몇 V인가요? 시험 온도는 몇 °C인가요?"
-- **출력**: `design`(설계값), `reliability_pass_rate`(통과확률 %)
-
-### update_lot_reference
-- **입력**: `lot_id`(str), `factors`(dict, {인자명: 값})
-- **출력**: `updated_factors`, `ref_values`, `remaining_부족인자`
-- **역할**: 부족인자 보충. fully_satisfied_versions가 있으면 당장 안 해도 됨 (추가 버전 활성화용).
+- `get_first_lot_detail`에 **chip_prod_id를 넣으면 에러**. 반드시 lot_id를 넣는다.
+- `optimal_design`의 params는 **list**, `reliability_simulation`의 params는 **scalar**. 절대 혼동하지 마라.
+- `halt_voltage/halt_temperature`: **기본값(5)을 쓰지 마라.** 사용자에게 반드시 한 번 확인받아라.
+- `fully_satisfied_versions`가 **한 개라도** 있으면 시뮬레이션 진행 가능. 모든 버전 충족을 기다리지 않는다.
 
 ## 보충 Reference 문서
 
@@ -180,7 +154,7 @@ Reference LOT을 기준으로 최적설계(DOE)와 신뢰성 시뮬레이션을 
 - params는 약 10개이므로 너무 길면 두세 묶음으로 나눠 묻되, 이미 있는 값은 제외한다.
 - 질문은 항상 "지금 실행을 위해 무엇이 빠졌는지" 기준으로만 한다.
 - 결과를 보여줄 때는 각 후보의 번호, 핵심 설계값, 예측 결과, target과의 차이를 함께 요약한다.
-- 내부적으로 최신 lot_id, targets, params, top_candidates를 유지한다고 가정하고 대화를 이어간다.
+- 대화 맥락에 최신 lot_id, targets, params, top_candidates가 있으면 별도 질문 없이 그 값을 그대로 사용한다.
 
 ## 실패 처리
 
