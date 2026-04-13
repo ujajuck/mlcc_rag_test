@@ -2,6 +2,8 @@ import logging
 from google.adk.tools.tool_context import ToolContext
 from ..utils.utils import make_json_serializable
 from ..ports.state_keys import lot_key
+from ..ports.adapter import adapt_output
+from ..ports.schemas import LotDetailResult
 
 async def get_first_lot_detail(tool_context: ToolContext, lot_id: str) -> dict:
     """
@@ -24,7 +26,7 @@ async def get_first_lot_detail(tool_context: ToolContext, lot_id: str) -> dict:
         target_lot_id = lot_id.strip()
     except (KeyError, AttributeError):
         logging.debug("결과 데이터에 'lot_id' 컬럼이 없거나 형식이 잘못되었습니다.")
-        return {"status": "error", "error_reason": "ref lot identifier missing"}
+        return adapt_output({"status": "error", "error_reason": "ref lot identifier missing"}, LotDetailResult)
 
     logging.debug(f"LOT ID [{target_lot_id}]에 대한 상세 정보를 조회합니다.")
 
@@ -33,10 +35,10 @@ async def get_first_lot_detail(tool_context: ToolContext, lot_id: str) -> dict:
     detail_result = db.execute_read(sql_detail, (target_lot_id,))
 
     if not detail_result:
-        return {
+        return adapt_output({
             "status": "error",
-            "error_reason": "REF LOT 검색에 실패했습니다. 다른 LOT를 지정하도록 유도하세요."
-        }
+            "error_reason": "REF LOT 검색에 실패했습니다. 다른 LOT를 지정하도록 유도하세요.",
+        }, LotDetailResult)
 
     # 4. 결과 가공 및 State 저장
     ref_lot_design_info = [
@@ -58,8 +60,8 @@ async def get_first_lot_detail(tool_context: ToolContext, lot_id: str) -> dict:
         "레퍼런스 LOT를 변경하고 싶으시면 말씀해 주세요."
     )
 
-    return {
+    return adapt_output({
         "status": "success",
         "ref_lot_design_info": ref_lot_design_info,
-        "hint": hint
-    }
+        "hint": hint,
+    }, LotDetailResult)

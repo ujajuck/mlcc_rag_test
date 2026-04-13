@@ -17,6 +17,8 @@ from google.adk.tools.tool_context import ToolContext
 from ..schema.grid_search_input import API_FULL_COLUMN_LIST, TARGET_COLMNS
 from ..db import db
 from ..ports.state_keys import lot_key, validation_key
+from ..ports.adapter import adapt_output
+from ..ports.schemas import SimulationResult
 
 GRID_SEARCH_API_URL = os.getenv("GRID_SEARCH_API_URL")
 
@@ -97,15 +99,15 @@ def optimal_design(
     # 검증 프로세스
     validation = tool_context.state.get(validation_key(lot_id))
     if validation is None:
-        return {
+        return adapt_output({
             "status": "error",
-            "reason": "check_optimal_design 검증이 진행되지 않았음."
-        }
+            "reason": "check_optimal_design 검증이 진행되지 않았음.",
+        }, SimulationResult)
     if validation['부족인자'].get(simulation_ver, []) != []:
-        return {
+        return adapt_output({
             "status": "error",
-            "reason": f"check_optimal_design 검증에서 {simulation_ver}에 대해 부족인자가 존재함."
-        }
+            "reason": f"check_optimal_design 검증에서 {simulation_ver}에 대해 부족인자가 존재함.",
+        }, SimulationResult)
 
     processed_data = fill_missing_columns(lot_detail, API_FULL_COLUMN_LIST)
     
@@ -147,7 +149,7 @@ def optimal_design(
     datas = response.json()
 
     if not datas.get("datas").get("sim"):
-        return {'status': 'error', 'error_reason': "시뮬레이션 결과 만족하는 설계값이 없음"}
+        return adapt_output({'status': 'error', 'error_reason': "시뮬레이션 결과 만족하는 설계값이 없음"}, SimulationResult)
 
     datas = _get_sim_final_size(datas)
 
@@ -170,7 +172,7 @@ def optimal_design(
         } for row in result
     ]
 
-    return {
+    return adapt_output({
         "status": "success",
         "lot_id": lot_id,
         "targets": {
@@ -181,4 +183,4 @@ def optimal_design(
             "target_dc_cap": target_dc_cap,
         },
         "top_candidates": filtered_result,
-    }
+    }, SimulationResult)

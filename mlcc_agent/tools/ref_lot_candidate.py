@@ -2,6 +2,8 @@ import logging
 from google.adk.tools.tool_context import ToolContext
 from typing import Literal, List
 from ..db import db
+from ..ports.adapter import adapt_output
+from ..ports.schemas import RefLotResult
 
 # from ..utils.tools import transform_kormap
 # from ..utils.utils import save_analysis_result
@@ -154,7 +156,7 @@ async def find_ref_lot_candidate(
             "[/예시답변]"
         )
         logging.debug("이전 쿼리 결과가 없어 상세 조회를 진행할 수 없습니다.")
-        return {'status': 'fail', 'error_reason': hint}
+        return adapt_output({'status': 'fail', 'error_reason': hint}, RefLotResult)
 
     ref_lot_candidates_results = [{key: row[key] for key in target_columns} for row in results]
     ref_lot_info = ref_lot_candidates_results[0]
@@ -174,10 +176,10 @@ async def find_ref_lot_candidate(
         "혹시 다른 LOT을 원하시면 해당 LOT을 말씀해주세요."
     )
 
-    return {
+    return adapt_output({
         'status': 'success',
         'ref_lot_id': ref_lot_id,
         'ref_lot_candi_top_k': results_mapping,
         "next_tool_use": "get_first_lot_detail",
-        "hint": hint
-    }
+        "hint": hint,
+    }, RefLotResult)
