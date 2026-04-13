@@ -30,6 +30,7 @@ from google.adk.agents import Agent, LlmAgent
 from google.adk.skills import load_skill_from_dir
 from google.adk.tools.skill_toolset import SkillToolset
 from google.adk.models.lite_llm import LiteLlm
+from .ports.schemas import AgentInput, AgentOutput
 from .tools import (
     get_first_lot_detail,
     search_rag,
@@ -60,6 +61,14 @@ mlcc_skill_toolset = SkillToolset(skills=[spec_selector_skill, doe_skill, dispat
 root_agent = LlmAgent(
     model=LiteLlm(model="openai/gpt-5-mini"), # LiteLLM model string format
     name="openai_agent",
+    # ── 오케스트레이터 I/O 어댑터 ──────────────────────────────────────────────
+    # input_schema:  오케스트레이터가 보내는 구조를 AgentInput으로 강제.
+    #                오케스트레이터 포맷이 바뀌어도 ports/schemas.py 만 수정하면 됨.
+    # output_schema: 이 agent의 최종 응답을 AgentOutput 구조로 강제.
+    #                오케스트레이터는 자유 형식 텍스트 대신 이 계약된 JSON을 받음.
+    #                내부 구현(tool, skill)이 바뀌어도 오케스트레이터 파싱 코드 불변.
+    input_schema=AgentInput,
+    output_schema=AgentOutput,
     instruction=(
         "당신은 삼성전기 MLCC 개발자를 도와주는 전문 에이전트입니다.\n"
         "세 가지 skill이 등록되어 있으며, 상황에 맞게 자동으로 활성화됩니다.\n"
@@ -84,7 +93,16 @@ root_agent = LlmAgent(
         "[금지사항]\n"
         "3. check_optimal_design 없이 optimal_design을 호출하지 마라.\n"
         "4. tool이 에러를 반환했는데 성공한 것처럼 응답하지 마라.\n"
-        "5. tool 에러 후 선행 단계를 수행했으면, 에러가 났던 원래 tool을 반드시 재실행하라. 이전 에러 결과를 재사용하지 마라.\n"
+        "5. tool 에러 후 선행 단계를 수행했으면, 에러가 났던 원래 tool을 반드시 재실행하라. 이전 에러 결과를 재사용하지 마라.\n\n"
+        "## 응답 형식 (output_schema 준수)\n\n"
+        "모든 최종 응답은 다음 JSON 구조로 반환해야 한다:\n"
+        "  status  : 'completed' | 'needs_confirmation' | 'error' | 'in_progress'\n"
+        "  summary : 수행 결과 요약 (사람이 읽을 수 있는 텍스트)\n"
+        "  next_step: 오케스트레이터가 다음에 수행할 작업 힌트 (선택)\n"
+        "  payload : 다음 단계로 넘길 구조화 데이터 (선택)\n"
+        "            예: {\"chip_prod_id_list\": [...]}\n"
+        "                {\"lot_id\": \"AKB45A2\"}\n"
+        "                {\"design_values\": {...}}\n"
     ),
     tools=[
         mlcc_skill_toolset,
