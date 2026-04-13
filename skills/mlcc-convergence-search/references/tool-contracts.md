@@ -1,8 +1,6 @@
 # Tool Contracts — 최적설계 / 신뢰성 시뮬레이션
 
-이 reference는 mlcc-optimal-design-doe 스킬이 의존하는 3개 tool의 계약을 설명한다.
-
-LOT 선정 및 검증 도구(find_ref_lot_candidate, get_first_lot_detail, check_optimal_design, update_lot_reference)는 `mlcc-lot-validation` 스킬의 `references/tool-contracts.md`를 참고한다.
+이 reference는 mlcc-convergence-search 스킬이 의존하는 3개 tool의 계약을 설명한다.
 
 ## Contents
 
@@ -45,9 +43,6 @@ LOT 선정 및 검증 도구(find_ref_lot_candidate, get_first_lot_detail, check
 
 **재실행 (특정 후보 기반)**: 선택 후보의 설계값을 각각 단일 값 리스트 `[value]`로 구성한다.
 
-예시 — 3번 후보에서 cast_dsgn_thk만 5.2로 변경:
-- `cast_dsgn_thk`: `[5.2]`, `active_layer`: `[158]`, ... (나머지는 3번 후보 값 그대로)
-
 출력:
 
 - `top_candidates`: 최적 설계 후보 5개. 각 후보에 `rank`, `design`, `predicted`, `gap` 포함.
@@ -70,8 +65,8 @@ LOT 선정 및 검증 도구(find_ref_lot_candidate, get_first_lot_detail, check
 - `screen_mrgn_widh`: float — 스크린 마진 너비 (um)
 - `cover_sheet_thk`: float — 커버 두께 (um)
 - `total_cover_layer_num`: int — 상+하 커버층수 (EA)
-- `halt_voltage`: float (optional, default 5) — 장기신뢰성 시험 전압. 스펙전압 대비 배수(예: 1.5Vr → Vr × 1.5 = 실제 전압)로 받거나 절대전압(V)으로 받는다. 숫자만 입력 (단위 생략).
-- `halt_temperature`: float (optional, default 5) — 장기신뢰성 시험 온도(°C). 숫자만 입력 (예: 85도 → 85).
+- `halt_voltage`: float (optional, default 5) — 장기신뢰성 시험 전압. 스펙전압 대비 배수(예: 1.5Vr)로 받거나 절대전압(V)으로 받는다.
+- `halt_temperature`: float (optional, default 5) — 장기신뢰성 시험 온도(°C).
 
 출력:
 
@@ -82,9 +77,8 @@ LOT 선정 및 검증 도구(find_ref_lot_candidate, get_first_lot_detail, check
 
 - optimal_design과 달리 **params가 scalar**다. list로 넣지 않는다.
 - 여러 설계 조건을 비교하려면 이 tool을 **여러 번 호출**한다.
-- optimal_design의 top 5 후보 각각에 대해 신뢰성을 확인할 때 유용하다.
+- **halt_voltage, halt_temperature는 사용자에게 반드시 한 번 확인받아야 한다.** 기본값(5)을 그대로 쓰지 말고, 사용자가 신뢰성 시뮬레이션을 요청하면 시험 전압과 온도를 먼저 물어본다.
 - lot_id 검증(check_optimal_design)이 선행되어야 한다.
-- **halt_voltage, halt_temperature는 사용자에게 반드시 한 번 확인받아야 한다.** 기본값(5)을 그대로 쓰지 말고, 사용자가 신뢰성 시뮬레이션을 요청하면 시험 전압과 온도를 먼저 물어본다. 전압은 "스펙전압 대비 배수(예: 1.5Vr)" 또는 "절대 전압(예: 6.3V)" 중 편한 방식으로 받는다.
 
 ---
 

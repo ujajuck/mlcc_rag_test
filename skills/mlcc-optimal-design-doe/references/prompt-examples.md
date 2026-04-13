@@ -6,4 +6,5 @@
 |------|-----------|
 | `examples-lot-doe.md` | LOT 검증, 부족인자 보충, 최적설계 DOE, 재실행 (Examples 1-7) + Full Response |
 | `examples-reliability.md` | 신뢰성 시뮬레이션, 자율 반복, 복합 요청 (Examples 8-13) + Full Response |
-| `examples-convergence.md` | 수렴 탐색 — 타겟 + 신뢰성 동시 만족 (Examples 14-16) |
+
+자율 반복 / 수렴 탐색 예시는 `mlcc-convergence-search` 스킬의 references에 있다.
