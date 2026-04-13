@@ -1,6 +1,7 @@
 import logging
 from google.adk.tools.tool_context import ToolContext
 from ..utils.utils import make_json_serializable
+from ..ports.state_keys import lot_key
 
 async def get_first_lot_detail(tool_context: ToolContext, lot_id: str) -> dict:
     """
@@ -44,7 +45,7 @@ async def get_first_lot_detail(tool_context: ToolContext, lot_id: str) -> dict:
     ]
     
     # 세션 상태에 직렬화된 데이터 저장
-    tool_context.state[target_lot_id] = make_json_serializable(detail_result)
+    tool_context.state[lot_key(target_lot_id)] = make_json_serializable(detail_result)
 
     # 5. 사용자 가이드(Hint) 설정
     hint = (

@@ -16,6 +16,7 @@ from ..utils.utils import fill_missing_columns, make_json_serializable
 from google.adk.tools.tool_context import ToolContext
 from ..schema.grid_search_input import API_FULL_COLUMN_LIST, TARGET_COLMNS
 from ..db import db
+from ..ports.state_keys import lot_key, validation_key
 
 GRID_SEARCH_API_URL = os.getenv("GRID_SEARCH_API_URL")
 
@@ -91,19 +92,19 @@ def optimal_design(
     Params units: sizes in um, thicknesses in um, layer counts in EA.
     """
     simulation_ver = 'ver4'
-    lot_detail = tool_context.state.get(lot_id)
+    lot_detail = tool_context.state.get(lot_key(lot_id))
 
     # 검증 프로세스
-    try:
-        if tool_context.state['validation'][lot_id]['부족인자'][simulation_ver] != []:
-            return {
-                "status": "error", 
-                "reason": f"check_optimal_design 검증에서 {simulation_ver}에 대해 부족인자가 존재함."
-            }
-    except:
+    validation = tool_context.state.get(validation_key(lot_id))
+    if validation is None:
         return {
-            "status": "error", 
-            "reason": "check_optimal_design 검증이 되지 진행되지 않았음."
+            "status": "error",
+            "reason": "check_optimal_design 검증이 진행되지 않았음."
+        }
+    if validation['부족인자'].get(simulation_ver, []) != []:
+        return {
+            "status": "error",
+            "reason": f"check_optimal_design 검증에서 {simulation_ver}에 대해 부족인자가 존재함."
         }
 
     processed_data = fill_missing_columns(lot_detail, API_FULL_COLUMN_LIST)
