@@ -15,8 +15,6 @@ from typing import Optional, Annotated
 from google.adk.tools.tool_context import ToolContext
 from ..db import db
 from ..utils.utils import make_json_serializable, validate_required_columns, save_analysis_result
-from ..ports.adapter import adapt_output
-from ..ports.schemas import ReliabilityResult
 
 RELIABILITY_API_URL = os.getenv("RELIABILITY_API_URL")
 
@@ -90,7 +88,7 @@ async def reliability_simulation(
         datas = response.json()
         longterm_halt_reliability_prob = datas['results']['longterm_halt_reliability_prob'] * 100
         
-        return adapt_output({
+        return {
             "status": "success",
             "lot_id": lot_id,
             "design": {
@@ -105,13 +103,13 @@ async def reliability_simulation(
                 "total_cover_layer_num": total_cover_layer_num,
             },
             "reliability_pass_rate": f"{round(longterm_halt_reliability_prob, 3)}%",
-        }, ReliabilityResult)
+        }
 
     except requests.exceptions.Timeout:
-        return adapt_output({"status": "error", "error_reason": "[API Error] 요청 시간이 초과되었습니다. (Timeout)"}, ReliabilityResult)
+        return {"status": "error", "error_reason": "[API Error] 요청 시간이 초과되었습니다. (Timeout)"}
     except requests.exceptions.ConnectionError:
-        return adapt_output({"status": "error", "error_reason": "[API Error] 서버에 연결할 수 없습니다. URL을 확인해주세요."}, ReliabilityResult)
+        return {"status": "error", "error_reason": "[API Error] 서버에 연결할 수 없습니다. URL을 확인해주세요."}
     except requests.exceptions.HTTPError as e:
-        return adapt_output({"status": "error", "error_reason": f"[API Error] 서버가 에러를 반환했습니다: {e}"}, ReliabilityResult)
+        return {"status": "error", "error_reason": f"[API Error] 서버가 에러를 반환했습니다: {e}"}
     except Exception as e:
-        return adapt_output({"status": "error", "error_reason": f"[API Error] 알 수 없는 오류 발생: {e}"}, ReliabilityResult)
+        return {"status": "error", "error_reason": f"[API Error] 알 수 없는 오류 발생: {e}"}

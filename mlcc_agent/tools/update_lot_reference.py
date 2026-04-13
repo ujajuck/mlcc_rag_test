@@ -11,8 +11,6 @@ the base reference data from check_optimal_design.
 # from .check_optimal_design import _VALID_LOTS
 from google.adk.tools.tool_context import ToolContext
 from ..ports.state_keys import lot_key, validation_key
-from ..ports.adapter import adapt_output
-from ..ports.schemas import LotUpdateResult
 
 # In-memory override store: {lot_id: {factor_name: value}}
 _overrides: dict[str, dict] = {}
@@ -40,10 +38,10 @@ def update_lot_reference(tool_context: ToolContext, lot_id: str, factors: dict) 
     lot_detail = tool_context.state.get(lot_key(lot_id))
 
     if not lot_detail:
-        return adapt_output({
+        return {
             "status": "error",
             "reason": f"first lot detail Tool을 사용하여 {lot_id}의 정보를 얻어와야함.",
-        }, LotUpdateResult)
+        }
 
     lot_detail.update(factors)
     tool_context.state[lot_key(lot_id)] = lot_detail
@@ -53,10 +51,10 @@ def update_lot_reference(tool_context: ToolContext, lot_id: str, factors: dict) 
 
     remaining = [f for f in missing_base if f not in factors]
 
-    return adapt_output({
+    return {
         "status": "success",
         "lot_id": lot_id,
         "updated_factors": factors,
         "ref_values": lot_detail,
         "remaining_부족인자": remaining,
-    }, LotUpdateResult)
+    }

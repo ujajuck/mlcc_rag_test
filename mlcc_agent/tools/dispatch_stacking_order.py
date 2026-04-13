@@ -10,8 +10,6 @@ DOE/신뢰성 시뮬레이션에서 확정된 최종 설계값으로
 import os
 import logging
 import requests
-from ..ports.adapter import adapt_output
-from ..ports.schemas import DispatchResult
 
 # ---------------------------------------------------------------------------
 # API 엔드포인트 (환경변수)
@@ -56,7 +54,7 @@ def dispatch_stacking_order(
     """
     # 사용자 확인 미완료 시 → 확인 요청 반환
     if not user_confirmed:
-        return adapt_output({
+        return {
             "status": "awaiting_confirmation",
             "message": "적층투입지시를 실행하기 전에 사용자 최종 확인이 필요합니다.",
             "hint": (
@@ -69,7 +67,7 @@ def dispatch_stacking_order(
             "chip_prod_id": chip_prod_id,
             "lot_id": lot_id,
             "design_values": design_values,
-        }, DispatchResult)
+        }
 
     # 필수 필드 검증
     required_fields = [
@@ -80,10 +78,10 @@ def dispatch_stacking_order(
     ]
     missing = [f for f in required_fields if f not in design_values]
     if missing:
-        return adapt_output({
+        return {
             "status": "error",
             "message": f"설계값에 필수 필드가 누락되었습니다: {missing}",
-        }, DispatchResult)
+        }
 
     # Production 모드 (API URL 존재 시)
     if DISPATCH_API_URL:
@@ -111,7 +109,7 @@ def _dispatch_production(chip_prod_id: str, lot_id: str, design_values: dict) ->
         response.raise_for_status()
         result = response.json()
 
-        return adapt_output({
+        return {
             "status": "success",
             "message": (
                 f"적층투입지시가 성공적으로 실행되었습니다.\n"
@@ -120,13 +118,13 @@ def _dispatch_production(chip_prod_id: str, lot_id: str, design_values: dict) ->
             "dispatch_id": result.get("dispatch_id", "N/A"),
             "chip_prod_id": chip_prod_id,
             "lot_id": lot_id,
-        }, DispatchResult)
+        }
     except requests.exceptions.RequestException as e:
         logging.error(f"[Dispatch API Error] {e}")
-        return adapt_output({
+        return {
             "status": "error",
             "message": f"적층투입지시 API 호출 실패: {str(e)}",
-        }, DispatchResult)
+        }
 
 
 def _dispatch_mock(chip_prod_id: str, lot_id: str, design_values: dict) -> dict:
@@ -134,7 +132,7 @@ def _dispatch_mock(chip_prod_id: str, lot_id: str, design_values: dict) -> dict:
     import uuid
     mock_dispatch_id = f"MOCK-{uuid.uuid4().hex[:8].upper()}"
 
-    return adapt_output({
+    return {
         "status": "success",
         "message": (
             f"[MOCK] 적층투입지시가 성공적으로 실행되었습니다.\n"
@@ -145,4 +143,4 @@ def _dispatch_mock(chip_prod_id: str, lot_id: str, design_values: dict) -> dict:
         "chip_prod_id": chip_prod_id,
         "lot_id": lot_id,
         "design_values": design_values,
-    }, DispatchResult)
+    }

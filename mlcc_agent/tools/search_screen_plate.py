@@ -11,8 +11,6 @@ mock 모드에서는 샘플 데이터로 시뮬레이션한다.
 import os
 import logging
 from ..db import db
-from ..ports.adapter import adapt_output
-from ..ports.schemas import ScreenPlateResult
 
 # ---------------------------------------------------------------------------
 # 샘플 데이터 (mock 모드)
@@ -131,7 +129,7 @@ def _search_production(
         if not results:
             return _no_match_response(leng, widh, mrgn_leng, mrgn_widh)
         rows = [dict(r) for r in results]
-        return adapt_output({
+        return {
             "status": "success",
             "row_count": len(rows),
             "rows": rows,
@@ -139,10 +137,10 @@ def _search_production(
                 f"설계값(길이={leng}um, 너비={widh}um)에 매칭되는 스크린 동판이 "
                 f"{len(rows)}건 확인되었습니다."
             ),
-        }, ScreenPlateResult)
+        }
     except Exception as e:
         logging.error(f"[Screen Plate Search Error] {e}")
-        return adapt_output({"status": "error", "message": str(e)}, ScreenPlateResult)
+        return {"status": "error", "message": str(e)}
 
 
 def _search_mock(
@@ -166,7 +164,7 @@ def _search_mock(
     if not matched:
         return _no_match_response(leng, widh, mrgn_leng, mrgn_widh)
 
-    return adapt_output({
+    return {
         "status": "success",
         "row_count": len(matched),
         "rows": matched,
@@ -174,12 +172,12 @@ def _search_mock(
             f"설계값(길이={leng}um, 너비={widh}um)에 매칭되는 스크린 동판이 "
             f"{len(matched)}건 확인되었습니다."
         ),
-    }, ScreenPlateResult)
+    }
 
 
 def _no_match_response(leng, widh, mrgn_leng, mrgn_widh):
     """매칭 결과가 없을 때 응답."""
-    return adapt_output({
+    return {
         "status": "no_match",
         "row_count": 0,
         "rows": [],
@@ -188,4 +186,4 @@ def _no_match_response(leng, widh, mrgn_leng, mrgn_widh):
             "현재 공정에 존재하지 않습니다. "
             "스크린 동판 신규 제작이 필요할 수 있습니다."
         ),
-    }, ScreenPlateResult)
+    }

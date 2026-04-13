@@ -13,8 +13,6 @@ import requests
 from ..db import db
 from google.adk.tools.tool_context import ToolContext
 from ..ports.state_keys import lot_key, validation_key
-from ..ports.adapter import adapt_output
-from ..ports.schemas import ValidationResult
 
 # 환경 변수 및 상수 설정
 VALIDATION_API_URL = os.getenv("VALIDATION_API_URL")
@@ -30,10 +28,10 @@ def check_optimal_design(tool_context: ToolContext, lot_id: str) -> dict:
     
     # 1. State 체크 및 데이터 로드
     if not tool_context.state.get(lot_key(lot_id)):
-        return adapt_output({
+        return {
             "status": "error",
             "reason": f"first lot detail Tool을 사용하여 {lot_id}의 정보를 얻어와야함.",
-        }, ValidationResult)
+        }
 
     lot_detail = tool_context.state.get(lot_key(lot_id))
     missing_info = {}
@@ -80,11 +78,11 @@ def check_optimal_design(tool_context: ToolContext, lot_id: str) -> dict:
         "fully_satisfied_versions": fully_satisfied,
     }
 
-    return adapt_output({
+    return {
         "status": status,
         "lot_id": lot_id,
         "fully_satisfied_versions": fully_satisfied,
         "partially_missing_versions": partially_missing,
         "부족인자": missing_info,
         "충족인자": fulfilled_info,
-    }, ValidationResult)
+    }
