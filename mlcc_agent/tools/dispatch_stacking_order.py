@@ -81,8 +81,6 @@ def dispatch_stacking_order(
         return {
             "status": "error",
             "message": f"설계값에 필수 필드가 누락되었습니다: {missing}",
-            "row_count": 0,
-            "rows": [],
         }
 
     # Production 모드 (API URL 존재 시)
@@ -118,7 +116,8 @@ def _dispatch_production(chip_prod_id: str, lot_id: str, design_values: dict) ->
                 f"chip_prod_id: {chip_prod_id}, lot_id: {lot_id}"
             ),
             "dispatch_id": result.get("dispatch_id", "N/A"),
-            "api_response": result,
+            "chip_prod_id": chip_prod_id,
+            "lot_id": lot_id,
         }
     except requests.exceptions.RequestException as e:
         logging.error(f"[Dispatch API Error] {e}")

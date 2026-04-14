@@ -106,14 +106,10 @@ async def reliability_simulation(
         }
 
     except requests.exceptions.Timeout:
-        reason = "[API Error] 요청 시간이 초과되었습니다. (Timeout)"
-        return {"status": "error", "error_reason": reason}
+        return {"status": "error", "error_reason": "[API Error] 요청 시간이 초과되었습니다. (Timeout)"}
     except requests.exceptions.ConnectionError:
-        reason = "[API Error] 서버에 연결할 수 없습니다. URL을 확인해주세요."
-        return {"status": "error", "error_reason": reason}
+        return {"status": "error", "error_reason": "[API Error] 서버에 연결할 수 없습니다. URL을 확인해주세요."}
     except requests.exceptions.HTTPError as e:
-        reason = f"[API Error] 서버가 에러를 반환했습니다: {e}"
-        return {"status": "error", "error_reason": reason}
+        return {"status": "error", "error_reason": f"[API Error] 서버가 에러를 반환했습니다: {e}"}
     except Exception as e:
-        reason = f"[API Error] 알 수 없는 오류 발생: {e}"
-        return {"status": "error", "error_reason": reason}
+        return {"status": "error", "error_reason": f"[API Error] 알 수 없는 오류 발생: {e}"}

@@ -179,5 +179,5 @@ async def find_ref_lot_candidate(
         'ref_lot_id': ref_lot_id,
         'ref_lot_candi_top_k': results_mapping,
         "next_tool_use": "get_first_lot_detail",
-        "hint": hint
+        "hint": hint,
     }

@@ -10,6 +10,7 @@ the base reference data from check_optimal_design.
 """
 # from .check_optimal_design import _VALID_LOTS
 from google.adk.tools.tool_context import ToolContext
+from ..state_keys import lot_key, validation_key
 
 # In-memory override store: {lot_id: {factor_name: value}}
 _overrides: dict[str, dict] = {}
@@ -34,21 +35,19 @@ def update_lot_reference(tool_context: ToolContext, lot_id: str, factors: dict) 
         - remaining_부족인자: factors still missing after this update
     """
     lot_id = lot_id.strip()
-    lot_detail = tool_context.state.get(lot_id)
-    
+    lot_detail = tool_context.state.get(lot_key(lot_id))
+
     if not lot_detail:
         return {
-            "status": "error", 
-            "reason": f"first lot detail Tool을 사용하여 {lot_id}의 정보를 얻어와야함."
+            "status": "error",
+            "reason": f"first lot detail Tool을 사용하여 {lot_id}의 정보를 얻어와야함.",
         }
 
     lot_detail.update(factors)
-    tool_context.state[lot_id] = lot_detail
+    tool_context.state[lot_key(lot_id)] = lot_detail
 
-    try:
-        missing_base = tool_context.state['validation'][lot_id]['부족인자']
-    except KeyError:
-        missing_base = None
+    validation = tool_context.state.get(validation_key(lot_id))
+    missing_base = validation['부족인자'] if validation else None
 
     remaining = [f for f in missing_base if f not in factors]
 

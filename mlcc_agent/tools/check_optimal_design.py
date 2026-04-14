@@ -12,6 +12,7 @@ import requests
 
 from ..db import db
 from google.adk.tools.tool_context import ToolContext
+from ..state_keys import lot_key, validation_key
 
 # 환경 변수 및 상수 설정
 VALIDATION_API_URL = os.getenv("VALIDATION_API_URL")
@@ -26,13 +27,13 @@ def check_optimal_design(tool_context: ToolContext, lot_id: str) -> dict:
     lot_id = lot_id.strip()
     
     # 1. State 체크 및 데이터 로드
-    if not tool_context.state.get(lot_id):
+    if not tool_context.state.get(lot_key(lot_id)):
         return {
-            "status": "error", 
-            "reason": f"first lot detail Tool을 사용하여 {lot_id}의 정보를 얻어와야함."
+            "status": "error",
+            "reason": f"first lot detail Tool을 사용하여 {lot_id}의 정보를 얻어와야함.",
         }
-    
-    lot_detail = tool_context.state.get(lot_id)
+
+    lot_detail = tool_context.state.get(lot_key(lot_id))
     missing_info = {}
     fulfilled_info = {}
     ver_list = ["ver1", "ver2", "ver3", "ver4"]
@@ -71,11 +72,7 @@ def check_optimal_design(tool_context: ToolContext, lot_id: str) -> dict:
     partially_missing = {v: cols for v, cols in missing_info.items() if len(cols) > 0}
     status = "success" if fully_satisfied else "warning"
 
-    # state 저장 구조 최적화
-    if 'validation' not in tool_context.state:
-        tool_context.state['validation'] = {}
-
-    tool_context.state['validation'][lot_id] = {
+    tool_context.state[validation_key(lot_id)] = {
         "충족인자": fulfilled_info,
         "부족인자": missing_info,
         "fully_satisfied_versions": fully_satisfied,

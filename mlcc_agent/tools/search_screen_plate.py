@@ -140,7 +140,7 @@ def _search_production(
         }
     except Exception as e:
         logging.error(f"[Screen Plate Search Error] {e}")
-        return {"status": "error", "message": str(e), "row_count": 0, "rows": []}
+        return {"status": "error", "message": str(e)}
 
 
 def _search_mock(
