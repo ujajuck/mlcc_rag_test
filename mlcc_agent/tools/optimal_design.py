@@ -16,7 +16,7 @@ from ..utils.utils import fill_missing_columns, make_json_serializable
 from google.adk.tools.tool_context import ToolContext
 from ..schema.grid_search_input import API_FULL_COLUMN_LIST, TARGET_COLMNS
 from ..db import db
-from ..ports.state_keys import lot_key, validation_key
+from ..state_keys import lot_key, validation_key
 
 GRID_SEARCH_API_URL = os.getenv("GRID_SEARCH_API_URL")
 

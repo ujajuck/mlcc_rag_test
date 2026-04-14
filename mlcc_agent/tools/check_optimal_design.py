@@ -12,7 +12,7 @@ import requests
 
 from ..db import db
 from google.adk.tools.tool_context import ToolContext
-from ..ports.state_keys import lot_key, validation_key
+from ..state_keys import lot_key, validation_key
 
 # 환경 변수 및 상수 설정
 VALIDATION_API_URL = os.getenv("VALIDATION_API_URL")

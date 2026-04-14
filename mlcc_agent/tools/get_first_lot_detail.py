@@ -1,7 +1,7 @@
 import logging
 from google.adk.tools.tool_context import ToolContext
 from ..utils.utils import make_json_serializable
-from ..ports.state_keys import lot_key
+from ..state_keys import lot_key
 
 async def get_first_lot_detail(tool_context: ToolContext, lot_id: str) -> dict:
     """

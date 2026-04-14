@@ -10,7 +10,7 @@ the base reference data from check_optimal_design.
 """
 # from .check_optimal_design import _VALID_LOTS
 from google.adk.tools.tool_context import ToolContext
-from ..ports.state_keys import lot_key, validation_key
+from ..state_keys import lot_key, validation_key
 
 # In-memory override store: {lot_id: {factor_name: value}}
 _overrides: dict[str, dict] = {}
