@@ -17,22 +17,21 @@ Reference LOT을 기준으로 최적설계(DOE)와 신뢰성 시뮬레이션을 
 - **이전 단계 (spec-selector에서 넘어올 때)**: spec-selector가 인접기종 검색으로 chip_prod_id_list를 제공한다. 이것은 lot_id가 아니므로 반드시 `find_ref_lot_candidate`로 변환해야 한다.
 - **다음 단계 (dispatch로 넘어갈 때)**: 최종 설계값이 확정되면 design-dispatch 스킬로 진행할 수 있다. 전달할 값: active_layer, cast_dsgn_thk, electrode_c_avg, ldn_avr_value, screen 치수, cover_sheet_thk + chip_prod_id, lot_id.
 
-## 세션 상태 읽기/쓰기
+## 세션 상태
 
-> 필드 정의와 타입/단위는 `../session-state.md`를 참고한다.
+**읽는 키** (이전 스킬에서 전달됨):
+- `mlcc_design.session.chip_prod_id_list` — `find_ref_lot_candidate` 입력으로 사용
 
-**읽는 필드** (이전 스킬에서 전달됨):
-- `chip_prod_id_list` ← mlcc-rag-spec-selector 출력. `find_ref_lot_candidate` 입력으로 사용.
+**쓰는 키** (이 스킬이 갱신):
+- `mlcc_design.session.active_lot_id` — REF LOT 확정 후 기록
+- `mlcc_design.session.active_chip_prod_id` — REF LOT 확정 후 기록
+- `mlcc_design.targets.{lot_id}` — 사용자로부터 수집한 target 5개
+- `mlcc_design.params.{lot_id}` — DOE 탐색 범위 또는 재실행 단일값
+- `mlcc_design.top_candidates.{lot_id}` — optimal_design 결과
+- `mlcc_design.halt_conditions` — halt_voltage, halt_temperature (세션 내 유지)
+- `mlcc_design.final_design.{lot_id}` — 사용자 확정 설계값 → mlcc-design-dispatch가 읽음
 
-**쓰는 필드** (이 스킬이 갱신):
-- `active_lot_id`, `active_chip_prod_id` — REF LOT 확정 후 기록
-- `targets` — 사용자로부터 수집 후 기록
-- `params` — DOE 탐색 범위 또는 재실행 단일값 기록
-- `top_candidates` — optimal_design 결과 기록
-- `halt_voltage`, `halt_temperature` — 사용자 확인 후 기록, 세션 내 유지
-- `final_design` — 사용자가 후보를 확정하면 기록 → mlcc-design-dispatch가 읽음
-
-**상태 초기화 규칙**: 새 lot_id가 들어오면 targets, params, top_candidates를 초기화한다. halt 조건은 유지한다.
+**초기화 규칙**: 새 lot_id가 들어오면 targets/params/top_candidates를 초기화한다. halt_conditions는 유지한다.
 
 ## 실행 원칙
 
