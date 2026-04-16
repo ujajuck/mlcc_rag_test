@@ -1,0 +1,11 @@
+index,query,expected_skills,expected_tools,expected_state,required_keywords
+S001,"X7R 2.2uF 0805 25V 자동차용 MLCC 추천해줘","[""mlcc-rag-spec-selector""]","[""search_rag""]","{}","[""X7R""]"
+S002,"X5R 10uF 0603 16V 후보 chip_prod_id 리스트 뽑아줘","[""mlcc-rag-spec-selector""]","[""search_rag""]","{}","[""CL""]"
+S003,"active lineup 에 흐르는 CL32A106KOY8NNE 기종 있어?","[]","[""active_lineup_lookup""]","{}","[""CL32A106KOY8NNE""]"
+S004,"chip_prod_id CL32A106KOY8NNE 의 인접기종 뽑아줘","[""mlcc-rag-spec-selector""]","[""search_query_database""]","{}","[""인접""]"
+S005,"lot_id AKB45A2 로 optimal_design 바로 실행해줘","[""mlcc-optimal-design-doe""]","[""check_optimal_design""]","{""mlcc_design.lot.AKB45A2"":null}","[""check_optimal_design""]"
+S006,"lot_id AKB45A2 reliability simulation 돌려","[""mlcc-optimal-design-doe""]","[""get_first_lot_detail"",""reliability_simulation""]","{}","[""reliability""]"
+S007,"설계값 확정됐어. 스크린 동판 검색하고 적층투입 지시 준비","[""mlcc-design-dispatch""]","[""search_screen_plate"",""search_running_chips"",""dispatch_stacking_order""]","{}","[""적층""]"
+S008,"MLCC 추천해줘","[]","[]","{}","[""용도""]"
+S009,"X7R 2.2uF 1206 의 DC bias 특성 알려줘","[""mlcc-rag-spec-selector""]","[""search_rag""]","{}","[""DC bias""]"
+S010,"lot_id AKB45A2 상세정보만 조회","[]","[""get_first_lot_detail""]","{""mlcc_design.lot.AKB45A2"":null}","[""AKB45A2""]"

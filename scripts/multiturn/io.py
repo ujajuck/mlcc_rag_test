@@ -5,28 +5,46 @@ import json
 from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+
+from scripts.common.utils import safe_json_dumps, safe_json_loads
 
 from .types import CaseResult, MultiturnTestCase, TurnRecord, TurnTestSpec
 
 
-def _safe_json_loads(raw: Any, default: Any) -> Any:
-    """JSON 문자열 파싱. 실패 시 default 반환."""
-    if raw is None or raw == "":
-        return default
-    try:
-        return json.loads(raw)
-    except (json.JSONDecodeError, TypeError):
-        return default
+def _row_to_spec(row: dict, multiturn_index: int) -> TurnTestSpec:
+    """CSV row → TurnTestSpec."""
+    return TurnTestSpec(
+        multiturn_index=multiturn_index,
+        query=row.get("query", ""),
+        expected_skills=safe_json_loads(row.get("expected_skills"), []),
+        expected_tools=safe_json_loads(row.get("expected_tools"), []),
+        expected_state=safe_json_loads(row.get("expected_state"), {}),
+        required_keywords=safe_json_loads(row.get("required_keywords"), []),
+    )
 
 
-def _safe_json_dumps(value: Any) -> str:
-    """결과 CSV 저장용 안전 직렬화."""
-    return json.dumps(value, ensure_ascii=False, default=str)
+def load_single_turn_cases(csv_path: Path) -> list[MultiturnTestCase]:
+    """단일턴 CSV 로더.
+
+    CSV 컬럼: index, query, expected_skills, expected_tools,
+             expected_state, required_keywords
+    각 row 는 1턴짜리 MultiturnTestCase 로 변환된다.
+    """
+    cases: list[MultiturnTestCase] = []
+    with csv_path.open("r", encoding="utf-8-sig", newline="") as fp:
+        reader = csv.DictReader(fp)
+        for row in reader:
+            idx = row.get("index", "").strip()
+            if not idx:
+                continue
+            cases.append(
+                MultiturnTestCase(index=idx, turns=[_row_to_spec(row, 0)])
+            )
+    return cases
 
 
 def load_test_cases(csv_path: Path) -> list[MultiturnTestCase]:
-    """CSV 를 읽어 index 기준으로 턴을 그룹핑.
+    """멀티턴 CSV 를 읽어 index 기준으로 턴을 그룹핑.
 
     CSV 컬럼:
         index, multiturn_index, query,
@@ -41,14 +59,7 @@ def load_test_cases(csv_path: Path) -> list[MultiturnTestCase]:
             idx = row.get("index", "").strip()
             if not idx:
                 continue
-            spec = TurnTestSpec(
-                multiturn_index=int(row.get("multiturn_index", "0") or 0),
-                query=row.get("query", ""),
-                expected_skills=_safe_json_loads(row.get("expected_skills"), []),
-                expected_tools=_safe_json_loads(row.get("expected_tools"), []),
-                expected_state=_safe_json_loads(row.get("expected_state"), {}),
-                required_keywords=_safe_json_loads(row.get("required_keywords"), []),
-            )
+            spec = _row_to_spec(row, int(row.get("multiturn_index", "0") or 0))
             if idx not in by_index:
                 by_index[idx] = []
                 order.append(idx)
@@ -166,41 +177,41 @@ def write_summary_csv(result_dir: Path, results: list[CaseResult]) -> Path:
                 "total_output_tokens": r.total_output_tokens,
                 "total_model_requests": r.total_model_requests,
                 "total_elapsed_seconds": r.total_elapsed_seconds,
-                "per_turn_passed": _safe_json_dumps([t.passed for t in r.turns]),
-                "per_turn_input_tokens": _safe_json_dumps(
+                "per_turn_passed": safe_json_dumps([t.passed for t in r.turns]),
+                "per_turn_input_tokens": safe_json_dumps(
                     [t.input_tokens for t in r.turns]
                 ),
-                "per_turn_output_tokens": _safe_json_dumps(
+                "per_turn_output_tokens": safe_json_dumps(
                     [t.output_tokens for t in r.turns]
                 ),
-                "per_turn_model_request_count": _safe_json_dumps(
+                "per_turn_model_request_count": safe_json_dumps(
                     [t.model_request_count for t in r.turns]
                 ),
-                "per_turn_elapsed_seconds": _safe_json_dumps(
+                "per_turn_elapsed_seconds": safe_json_dumps(
                     [t.elapsed_seconds for t in r.turns]
                 ),
-                "per_turn_skills_used": _safe_json_dumps(
+                "per_turn_skills_used": safe_json_dumps(
                     [t.skills_used for t in r.turns]
                 ),
-                "per_turn_tools_used": _safe_json_dumps(
+                "per_turn_tools_used": safe_json_dumps(
                     [t.tools_used for t in r.turns]
                 ),
-                "per_turn_required_keywords_present": _safe_json_dumps(
+                "per_turn_required_keywords_present": safe_json_dumps(
                     [t.required_keywords_present for t in r.turns]
                 ),
-                "per_turn_state_keys": _safe_json_dumps(
+                "per_turn_state_keys": safe_json_dumps(
                     [_turn_state_keys(t) for t in r.turns]
                 ),
-                "per_turn_state_delta_keys": _safe_json_dumps(
+                "per_turn_state_delta_keys": safe_json_dumps(
                     [_turn_state_delta_keys(t) for t in r.turns]
                 ),
-                "per_turn_artifact_keys": _safe_json_dumps(
+                "per_turn_artifact_keys": safe_json_dumps(
                     [_turn_artifact_keys(t) for t in r.turns]
                 ),
-                "per_turn_fail_reasons": _safe_json_dumps(
+                "per_turn_fail_reasons": safe_json_dumps(
                     [t.fail_reasons for t in r.turns]
                 ),
-                "final_state_snapshot_json": _safe_json_dumps(final_state),
+                "final_state_snapshot_json": safe_json_dumps(final_state),
                 "error_message": r.error_message or "",
                 "details_json_path": r.details_json_path,
             }

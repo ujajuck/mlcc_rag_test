@@ -12,22 +12,12 @@ from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.genai import types
 
+from scripts.common.utils import compute_dict_delta
+
 from .evaluator import evaluate_turn
 from .io import save_case_details_json
 from .plugins import MultiturnTrackingPlugin
 from .types import CaseResult, MultiturnTestCase, TurnRecord
-
-
-def _compute_dict_delta(prev: dict[str, Any], curr: dict[str, Any]) -> dict[str, Any]:
-    """(added / removed / changed) 세 버킷으로 dict 차이를 요약."""
-    added = {k: curr[k] for k in curr if k not in prev}
-    removed = {k: prev[k] for k in prev if k not in curr}
-    changed = {
-        k: {"old": prev[k], "new": curr[k]}
-        for k in curr
-        if k in prev and prev[k] != curr[k]
-    }
-    return {"added": added, "removed": removed, "changed": changed}
 
 
 async def _snapshot_artifacts(
@@ -182,14 +172,14 @@ async def run_case(
         )
         state_snapshot = dict(updated_session.state) if updated_session else {}
         turn.state_snapshot = state_snapshot
-        turn.state_delta = _compute_dict_delta(prev_state, state_snapshot)
+        turn.state_delta = compute_dict_delta(prev_state, state_snapshot)
         prev_state = state_snapshot
 
         artifact_snapshot = await _snapshot_artifacts(
             artifact_service, app_name, user_id, session_id
         )
         turn.artifact_snapshot = artifact_snapshot
-        turn.artifact_delta = _compute_dict_delta(prev_artifacts, artifact_snapshot)
+        turn.artifact_delta = compute_dict_delta(prev_artifacts, artifact_snapshot)
         prev_artifacts = artifact_snapshot
 
         turn.input_tokens = sum(m.input_tokens for m in turn.model_calls)

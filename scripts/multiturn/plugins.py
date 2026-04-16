@@ -10,12 +10,12 @@ from google.adk.plugins.base_plugin import BasePlugin
 from google.adk.tools.base_tool import BaseTool
 from google.adk.tools.tool_context import ToolContext
 
-from scripts.run_skill_regression import (
-    _safe_json_dumps,
-    _truncate_text,
+from scripts.common.utils import (
     estimate_tokens_from_text,
     flatten_llm_request_to_text,
     flatten_llm_response_to_text,
+    safe_json_dumps,
+    truncate_text,
 )
 
 from .types import ModelCallRecord, ToolCallRecord, TurnRecord
@@ -87,7 +87,7 @@ class MultiturnTrackingPlugin(BasePlugin):
             return None
         for rec in reversed(self._current_turn.tool_calls):
             if rec.tool_name == tool.name and rec.result_preview == "__PENDING__":
-                rec.result_preview = _truncate_text(_safe_json_dumps(result))
+                rec.result_preview = truncate_text(safe_json_dumps(result))
                 break
         return None
 
