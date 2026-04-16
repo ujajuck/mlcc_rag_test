@@ -1,7 +1,7 @@
 import logging
 from google.adk.tools.tool_context import ToolContext
 from ..utils.utils import make_json_serializable
-from ..state_keys import lot_key
+from ..state_keys import lot_key, session_key
 
 async def get_first_lot_detail(tool_context: ToolContext, lot_id: str) -> dict:
     """
@@ -44,6 +44,12 @@ async def get_first_lot_detail(tool_context: ToolContext, lot_id: str) -> dict:
         for row in detail_result
     ]
     tool_context.state[lot_key(target_lot_id)] = make_json_serializable(detail_result)
+
+    # 세션 식별자 갱신: 이후 스킬이 lot_id / chip_prod_id를 state에서 바로 읽을 수 있음
+    tool_context.state[session_key("active_lot_id")] = target_lot_id
+    first_row = detail_result[0] if detail_result else {}
+    if first_row.get("chip_prod_id"):
+        tool_context.state[session_key("active_chip_prod_id")] = first_row["chip_prod_id"]
 
     # 5. 사용자 가이드(Hint) 설정
     hint = (

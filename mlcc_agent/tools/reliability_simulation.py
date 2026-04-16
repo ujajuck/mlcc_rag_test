@@ -15,6 +15,7 @@ from typing import Optional, Annotated
 from google.adk.tools.tool_context import ToolContext
 from ..db import db
 from ..utils.utils import make_json_serializable, validate_required_columns, save_analysis_result
+from ..state_keys import halt_conditions_key
 
 RELIABILITY_API_URL = os.getenv("RELIABILITY_API_URL")
 
@@ -34,9 +35,6 @@ async def reliability_simulation(
     halt_temperature: Annotated[Optional[float], Field(description="장기신뢰성 측정에 필요한 온도. 사용자가 단위를 입력한 경우 생략하고 숫자만 입력. Example: 85도 -> 85")] = 5,
 ):
     """ """
-    # ref_lot_id = tool_context.state['ref_lot_id']
-    # lot_detail = tool_context.state['ref_lot_detail_result']
-    
     params_chip = {'lot_id': f'%{lot_id}%'}
     logging.debug(f"ref_lot={lot_id} 으로 신뢰성 예측을 위한 payload 생성")
     
@@ -87,6 +85,12 @@ async def reliability_simulation(
         
         datas = response.json()
         longterm_halt_reliability_prob = datas['results']['longterm_halt_reliability_prob'] * 100
+
+        # halt 조건 state 저장: 동일 세션에서 재확인하지 않음
+        tool_context.state[halt_conditions_key()] = {
+            "halt_voltage": halt_voltage,
+            "halt_temperature": halt_temperature,
+        }
         
         return {
             "status": "success",
