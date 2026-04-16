@@ -125,4 +125,4 @@ User: `ldn_avr_value 3.0, cover_sheet_thk 28, gap_sheet_thk 1.2, screen_mrgn_wid
 | screen_mrgn_widh (스크린 마진 너비) | 55 um | ✅ 반영 |
 
 모든 인자가 채워졌습니다. 시뮬레이션을 진행할 수 있습니다.
-최적설계(DOE)나 신뢰성 시뮬레이션을 원하시면 mlcc-optimal-design-doe 또는 mlcc-convergence-search로 이어갑니다.
+최적설계(DOE), 신뢰성 시뮬레이션, 또는 자율 반복/수렴 탐색 중 원하시는 것을 말씀해 주시면 이어서 진행하겠습니다.
