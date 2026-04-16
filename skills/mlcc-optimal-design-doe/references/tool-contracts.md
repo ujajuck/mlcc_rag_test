@@ -1,85 +1,62 @@
-# Tool Contracts
+# Tool Contracts — 최적설계 / 신뢰성 시뮬레이션
 
-이 reference는 설계 시뮬레이션 skill이 의존하는 6개 tool의 계약을 설명한다.
+이 reference는 mlcc-optimal-design-doe 스킬이 의존하는 모든 tool의 계약을 설명한다.
 
 ## Contents
 
-- get_first_lot_detail
-- check_optimal_design
-- update_lot_reference
+- find_ref_lot_candidate
+- get_first_lot_detail / check_optimal_design / update_lot_reference
 - optimal_design
 - reliability_simulation
 - search_rag (공정검사표준 검증용)
 - 공통 해석 규칙
 
-## get_first_lot_detail
+---
 
-목적: ref lot으로 선정된 LOT의 설계정보를 DB에서 조회하여 세션 state에 저장한다. 이후 `check_optimal_design` 등 다른 tool이 이 state를 참조한다.
+## find_ref_lot_candidate
 
-입력:
-
-- `lot_id`: string
-
-출력:
-
-- `status`: "success" 또는 "error"
-- `ref_lot_design_info`: lot의 주요 설계 컬럼 정보 (chip_prod_id, lot_id, cur_site_div, electrode_c_avg, app_type, active_powder_base, ldn_cv_value, cast_dsgn_thk 등)
-- `hint`: 다음 단계 안내 메시지
-
-사용 규칙:
-
-- 새 `lot_id`가 들어오면 **가장 먼저** 호출한다. `check_optimal_design`보다 앞선다.
-- 이 tool이 state에 lot 데이터를 저장해야 `check_optimal_design`이 정상 동작한다.
-- `status: "error"`이면 해당 lot이 DB에 없는 것이므로 다른 lot_id를 요청한다.
-- 동일 lot_id로 이미 호출한 경우 중복 호출할 필요 없다.
-
-## check_optimal_design
-
-목적: 주어진 `lot_id`가 시뮬레이션 기준 reference로 사용 가능한지 확인한다. `get_first_lot_detail`이 선행되어야 한다.
+목적: chip_prod_id 목록에서 품질 기준에 맞는 REF LOT 후보를 반환한다.
 
 입력:
 
-- `lot_id`: string
+- `chip_prod_id_list`: List[str] — 인접기종 chip_prod_id 목록 (필수)
+- `cutting_grade_filter`: List[str] — 절단 등급 필터. 예: `['S 등급', 'A 등급', 'B 등급']` (기본값)
+- `measure_grade_filter`: List[str] — 측정 등급 필터 (기본값 동일)
+- `require_reliability_pass`: bool — 신뢰성 통과 필수 여부 (기본값 True)
+- `screen_code_filter`: List[str] — 스크린 코드 필터 (선택)
 
 출력:
 
-- `status`: "success" (한 개 이상 버전 충족) 또는 "warning" (모든 버전에 부족인자 존재)
-- `fully_satisfied_versions`: list — 부족인자가 없는 버전 리스트 (예: `["ver1", "ver3"]`). 이 버전들로 시뮬레이션 진행 가능.
-- `partially_missing_versions`: dict — 부족인자가 있는 버전과 해당 부족인자 (예: `{"ver2": ["ldn_avr_value"], "ver4": ["gap_sheet_thk"]}`)
-- `충족인자`: dict — 버전별 {인자명: 현재값} (예: `{"ver1": {"cast_dsgn_thk": 4.8, ...}, "ver2": {...}}`)
-- `부족인자`: dict — 버전별 부족인자 리스트 (예: `{"ver1": [], "ver2": ["ldn_avr_value"]}`)
+- 상위 LOT 목록. 각 항목: `lot_id`, `chip_prod_id`, 11개 품질지표.
 
 사용 규칙:
 
-- `get_first_lot_detail` 이후에 호출한다. state에 lot 데이터가 없으면 에러를 반환한다.
-- **`fully_satisfied_versions`가 하나라도 있으면 시뮬레이션 진행 가능**이다. 모든 버전이 충족될 때까지 기다릴 필요 없다.
-- 충족된 버전으로 시뮬레이션을 진행하고, 나머지 버전의 부족인자는 참고 정보로 안내한다.
-- 모든 버전에 부족인자가 있을 때만(`fully_satisfied_versions`가 빈 리스트) 사용자에게 선택지를 제시한다:
-  1. 사용자가 값을 직접 제공 → `update_lot_reference`로 반영
-  2. 다른 `lot_id`로 교체
-- `충족인자`의 값은 이후 params 기본값 제안에 활용할 수 있다.
+- 결과가 0건이면 등급 필터 완화(S→S,A,B) 또는 `require_reliability_pass=False`로 재시도한다.
+- 파라미터 매핑 상세는 `references/pattern-ref-lot-selection.md`에 있다.
 
-## update_lot_reference
+---
 
-목적: `check_optimal_design`에서 확인된 부족인자에 사용자 지정 값을 반영한다.
+## get_first_lot_detail / check_optimal_design / update_lot_reference
 
-입력:
+**get_first_lot_detail**
 
-- `lot_id`: string
-- `factors`: dict — {인자명: 값} 형태. 예: `{"cast_dsgn_thk": 3.2, "cover_sheet_thk": 28}`
+- 입력: `lot_id` (string) — **chip_prod_id를 넣으면 에러**.
+- 출력: ref lot 설계정보를 state(`mlcc_design.lot.{lot_id}`)에 저장.
+- 규칙: check_optimal_design 이전에 반드시 실행해야 한다.
 
-출력:
+**check_optimal_design**
 
-- `updated_factors`: 이번에 반영된 인자들
-- `ref_values`: 업데이트 후 전체 인자 현황 (base + override 병합)
-- `remaining_부족인자`: 아직 남아있는 부족인자 목록
+- 입력: `lot_id` (string) — get_first_lot_detail 선행 필수.
+- 출력: `fully_satisfied_versions` (List[str]), `충족인자` (dict), `부족인자` (dict).
+- 규칙: `fully_satisfied_versions`가 하나라도 있으면 시뮬레이션 진행 가능.
 
-사용 규칙:
+**update_lot_reference**
 
-- `check_optimal_design` 이후에만 호출한다.
-- 사용자가 부족인자 값을 제공하면 이 tool로 반영한다.
-- 이미 `fully_satisfied_versions`가 있으면 부족인자 보충 없이도 시뮬레이션을 진행할 수 있다. 보충은 추가 버전 활성화를 위한 것이다.
-- 한 번에 모든 부족인자를 채울 필요는 없다. 여러 번 호출해도 된다.
+- 입력: `lot_id` (string), `factors` (dict) — 부족인자명: 값 쌍.
+- 출력: 반영 후 남은 부족인자 목록.
+- 규칙: check_optimal_design 이후에만 호출. 일부만 채워도 된다.
+
+---
 
 ## optimal_design
 
@@ -120,6 +97,8 @@
 
 - `top_candidates`: 최적 설계 후보 5개. 각 후보에 `rank`, `design`, `predicted`, `gap` 포함.
 
+---
+
 ## reliability_simulation
 
 목적: 단일 설계 포인트에 대한 장기신뢰성(HALT) 통과확률을 계산한다.
@@ -127,7 +106,7 @@
 입력:
 
 - `lot_id`: string
-- `active_layer`: int — 액티브 층수 (EA), scalar, list가 아님
+- `active_layer`: int — 액티브 층수 (EA), **scalar, list가 아님**
 - `ldn_avr_value`: float — 레이다운 평균
 - `cast_dsgn_thk`: float — Sheet T 두께 (um)
 - `screen_chip_size_leng`: float — 스크린 길이 (um)
@@ -152,6 +131,8 @@
 - lot_id 검증(check_optimal_design)이 선행되어야 한다.
 - **halt_voltage, halt_temperature는 사용자에게 반드시 한 번 확인받아야 한다.** 기본값(5)을 그대로 쓰지 말고, 사용자가 신뢰성 시뮬레이션을 요청하면 시험 전압과 온도를 먼저 물어본다. 전압은 "스펙전압 대비 배수(예: 1.5Vr)" 또는 "절대 전압(예: 6.3V)" 중 편한 방식으로 받는다.
 
+---
+
 ## search_rag (공정검사표준 검증용)
 
 목적: 시뮬레이션 결과의 각 설계값이 공정검사표준 범위 안에 있는지 확인한다.
@@ -170,6 +151,8 @@
 - `optimal_design` 또는 `reliability_simulation` 결과가 나온 직후, 결과를 사용자에게 보여주기 **전에** 검증한다.
 - 범위를 벗어나면 `⚠️ 공정검사표준 초과`로 표시한다.
 - 표준 정보를 못 찾으면 `❓ 공정검사표준 미확인`으로 표시하고 넘어간다.
+
+---
 
 ## 공통 해석 규칙
 

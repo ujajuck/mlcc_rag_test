@@ -1,6 +1,6 @@
 ---
 name: mlcc-optimal-design-doe
-description: Reference LOT 기반 MLCC 설계 시뮬레이션 skill. 최적설계(DOE), 신뢰성 시뮬레이션, 또는 둘을 조합한 복합 분석을 수행한다. 사용자가 `lot_id 기준으로 최적설계 돌려줘`, `reference lot 검증해줘`, `부족인자 값 채워줘`, `신뢰성 시뮬레이션 돌려줘`, `여러 설계값으로 신뢰성 비교해줘`, `신뢰성 좋은 것 중에 최적설계 추천해줘`, `알아서 돌려보고 제일 좋은거 찾아줘` 같은 요청을 할 때 사용한다.
+description: Reference LOT 기반 MLCC 설계 시뮬레이션 skill. 최적설계(DOE), 신뢰성 시뮬레이션, 또는 둘을 조합한 복합 분석을 수행한다. 사용자가 `lot_id 기준으로 최적설계 돌려줘`, `reference lot 검증해줘`, `부족인자 값 채워줘`, `신뢰성 시뮬레이션 돌려줘`, `여러 설계값으로 신뢰성 비교해줘`, `신뢰성 좋은 것 중에 최적설계 추천해줘`, `알아서 돌려보고 제일 좋은거 찾아줘`, `타겟 맞추면서 신뢰성도 확보해줘` 같은 요청을 할 때 사용한다.
 ---
 
 # MLCC 설계 시뮬레이션
@@ -16,6 +16,22 @@ Reference LOT을 기준으로 최적설계(DOE)와 신뢰성 시뮬레이션을 
 
 - **이전 단계 (spec-selector에서 넘어올 때)**: spec-selector가 인접기종 검색으로 chip_prod_id_list를 제공한다. 이것은 lot_id가 아니므로 반드시 `find_ref_lot_candidate`로 변환해야 한다.
 - **다음 단계 (dispatch로 넘어갈 때)**: 최종 설계값이 확정되면 design-dispatch 스킬로 진행할 수 있다. 전달할 값: active_layer, cast_dsgn_thk, electrode_c_avg, ldn_avr_value, screen 치수, cover_sheet_thk + chip_prod_id, lot_id.
+
+## 세션 상태
+
+**읽는 키** (이전 스킬에서 전달됨):
+- `mlcc_design.session.chip_prod_id_list` — `find_ref_lot_candidate` 입력으로 사용
+
+**쓰는 키** (이 스킬이 갱신):
+- `mlcc_design.session.active_lot_id` — REF LOT 확정 후 기록
+- `mlcc_design.session.active_chip_prod_id` — REF LOT 확정 후 기록
+- `mlcc_design.targets.{lot_id}` — 사용자로부터 수집한 target 5개
+- `mlcc_design.params.{lot_id}` — DOE 탐색 범위 또는 재실행 단일값
+- `mlcc_design.top_candidates.{lot_id}` — optimal_design 결과
+- `mlcc_design.halt_conditions` — halt_voltage, halt_temperature (세션 내 유지)
+- `mlcc_design.final_design.{lot_id}` — 사용자 확정 설계값 → mlcc-design-dispatch가 읽음
+
+**초기화 규칙**: 새 lot_id가 들어오면 targets/params/top_candidates를 초기화한다. halt_conditions는 유지한다.
 
 ## 실행 원칙
 
@@ -38,40 +54,14 @@ Reference LOT을 기준으로 최적설계(DOE)와 신뢰성 시뮬레이션을 
 - **②③은 절대 생략 불가.** ②를 안 하면 ③이 에러, ③을 안 하면 ④가 에러난다.
 - ④가 에러나면: 에러 메시지 확인 → ②③ 재실행 → ④ 재실행. **에러 결과를 성공으로 보고하지 마라.**
 
-## Tool 입출력 계약
+## Tool 입출력 계약 요약
 
-### get_first_lot_detail
-- **입력**: `lot_id` (string) — 반드시 lot_id를 넣는다. chip_prod_id를 넣으면 에러.
-- **출력**: `status`("success"/"error"), `ref_lot_design_info`(설계 컬럼 정보), `hint`(다음 단계 안내)
-- **역할**: lot의 설계정보를 세션 state에 저장. 이후 check_optimal_design이 이 state를 참조.
+전체 계약은 `references/tool-contracts.md`에 있다. 아래는 혼동하기 쉬운 핵심 주의사항만 요약한다.
 
-### check_optimal_design
-- **입력**: `lot_id` (string)
-- **출력**: `status`("success"/"warning"), `fully_satisfied_versions`(리스트), `partially_missing_versions`(딕셔너리), `충족인자`, `부족인자`
-- **규칙**: `fully_satisfied_versions`가 **한 개라도** 있으면 시뮬레이션 진행 가능. 모든 버전 충족을 기다리지 않는다.
-
-### find_ref_lot_candidate
-- **입력**: `chip_prod_id_list` (List[str], 필수) + 선택 필터(cutting_grade_filter, measure_grade_filter, exclude_screen_codes, exclude_screen_types, require_reliability_pass, top_k)
-- **출력**: 상위 LOT 목록 (lot_id 포함) 또는 fail
-- **역할**: chip_prod_id → lot_id 변환의 유일한 경로
-
-### optimal_design
-- **입력**: `lot_id`(str), targets 5개(**scalar**), params 10개(**list**)
-- **targets**: `target_electrode_c_avg`(uF), `target_grinding_l_avg`(um), `target_grinding_w_avg`(um), `target_grinding_t_avg`(um), `target_dc_cap`(uF)
-- **params**: `active_layer`, `ldn_avr_value`, `cast_dsgn_thk`, `screen_chip_size_leng`, `screen_mrgn_leng`, `screen_chip_size_widh`, `screen_mrgn_widh`, `cover_sheet_thk`, `total_cover_layer_num`, `gap_sheet_thk`
-- **params 형식**: 초기 DOE = 다중포인트 리스트 `[4.75, 4.80, ..., 5.25]`, 재실행 = 단일값 `[value]`
-- **출력**: `top_candidates` (5개 후보, 각각 rank/design/predicted/gap)
-
-### reliability_simulation
-- **입력**: `lot_id`(str), params 10개(**scalar, list 아님!**), `halt_voltage`(float), `halt_temperature`(float)
-- **params와 optimal_design의 차이**: optimal_design은 list, reliability_simulation은 scalar. 절대 혼동하지 마라.
-- **halt_voltage/halt_temperature**: **기본값(5)을 쓰지 마라.** 사용자에게 반드시 한 번 확인받아라. "시험 전압은 몇 배수(예: 1.5Vr) 또는 몇 V인가요? 시험 온도는 몇 °C인가요?"
-- **출력**: `design`(설계값), `reliability_pass_rate`(통과확률 %)
-
-### update_lot_reference
-- **입력**: `lot_id`(str), `factors`(dict, {인자명: 값})
-- **출력**: `updated_factors`, `ref_values`, `remaining_부족인자`
-- **역할**: 부족인자 보충. fully_satisfied_versions가 있으면 당장 안 해도 됨 (추가 버전 활성화용).
+- `get_first_lot_detail`에 **chip_prod_id를 넣으면 에러**. 반드시 lot_id를 넣는다.
+- `optimal_design`의 params는 **list**, `reliability_simulation`의 params는 **scalar**. 절대 혼동하지 마라.
+- `halt_voltage/halt_temperature`: **기본값(5)을 쓰지 마라.** 사용자에게 반드시 한 번 확인받아라.
+- `fully_satisfied_versions`가 **한 개라도** 있으면 시뮬레이션 진행 가능. 모든 버전 충족을 기다리지 않는다.
 
 ## 보충 Reference 문서
 
@@ -84,7 +74,11 @@ Reference LOT을 기준으로 최적설계(DOE)와 신뢰성 시뮬레이션을 
 - `references/pattern-reliability.md`: halt 조건 확인 절차, 설계값 경로
 - `references/pattern-autonomous.md`: 자율 반복 4가지 패턴(A~D)
 - `references/pattern-convergence.md`: 수렴 탐색 4-Phase 방법론
-- `references/prompt-examples.md`: 한국어 질의/응답 예시
+- `references/examples-lot-validation.md`: LOT 선정/검증/부족인자 보충 예시 (Examples 1-6)
+- `references/examples-lot-doe.md`: 최적설계 DOE, 재실행 예시 (Examples 1-7)
+- `references/examples-reliability.md`: 신뢰성 시뮬레이션 및 자율 반복 예시 (Examples 8-13)
+- `references/examples-convergence.md`: 수렴 탐색 예시 (Examples 14-16)
+- `references/prompt-examples.md`: 예시 파일 인덱스
 
 ## 패턴 라우팅
 
@@ -180,7 +174,7 @@ Reference LOT을 기준으로 최적설계(DOE)와 신뢰성 시뮬레이션을 
 - params는 약 10개이므로 너무 길면 두세 묶음으로 나눠 묻되, 이미 있는 값은 제외한다.
 - 질문은 항상 "지금 실행을 위해 무엇이 빠졌는지" 기준으로만 한다.
 - 결과를 보여줄 때는 각 후보의 번호, 핵심 설계값, 예측 결과, target과의 차이를 함께 요약한다.
-- 내부적으로 최신 lot_id, targets, params, top_candidates를 유지한다고 가정하고 대화를 이어간다.
+- 세션 상태에 이미 기록된 값(lot_id, targets, params, top_candidates, halt 조건)은 다시 묻지 않는다.
 
 ## 실패 처리
 
@@ -189,3 +183,5 @@ Reference LOT을 기준으로 최적설계(DOE)와 신뢰성 시뮬레이션을 
 - 존재하지 않는 후보 번호 참조 시 현재 보이는 번호 범위를 다시 안내한다.
 - 공정검사표준 RAG 검색 실패 시 `공정검사표준 미확인` 표시를 달고 결과를 제시한다. 표준 확인 실패가 시뮬레이션 자체를 차단하지는 않는다.
 - 시뮬레이션 결과가 기대에 못 미칠 때는 파라미터 범위를 변경하거나 다른 lot으로 전환하여 재시도를 제안한다. 한 번의 실패로 종료하지 않는다.
+- 수렴 탐색 Phase 3에서 3회 반복 후 미수렴: 중간 결과를 사용자에게 보고하고 타겟 완화 또는 범위 변경 협의.
+- 타겟+신뢰성 상충이 명확해지면 즉시 사용자에게 trade-off를 보고하고 우선순위 협의.

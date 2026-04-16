@@ -16,7 +16,7 @@ from ..utils.utils import fill_missing_columns, make_json_serializable
 from google.adk.tools.tool_context import ToolContext
 from ..schema.grid_search_input import API_FULL_COLUMN_LIST, TARGET_COLMNS
 from ..db import db
-from ..state_keys import lot_key, validation_key
+from ..state_keys import lot_key, validation_key, targets_key, params_key, top_candidates_key
 
 GRID_SEARCH_API_URL = os.getenv("GRID_SEARCH_API_URL")
 
@@ -68,10 +68,10 @@ def optimal_design(
     tool_context: ToolContext,
     lot_id: str,
     target_electrode_c_avg: float,  # 타겟용량 (uF)
-    target_grinding_l_avg: float,  # 타겟 연마L사이즈 (um)
-    target_grinding_w_avg: float,  # 타겟 연마W사이즈 (um)
-    target_grinding_t_avg: float,  # 타겟 연마T사이즈 (um)
-    target_dc_cap: float,  # 타겟DC용량 (uF)
+    target_grinding_l_avg: float,   # 타겟 연마L사이즈 (um)
+    target_grinding_w_avg: float,   # 타겟 연마W사이즈 (um)
+    target_grinding_t_avg: float,   # 타겟 연마T사이즈 (um)
+    target_dc_cap: float,           # 타겟DC용량 (uF)
     active_layer: list[int],
     ldn_avr_value: list[float],
     cast_dsgn_thk: list[float],
@@ -169,6 +169,28 @@ def optimal_design(
             for key in TARGET_COLMNS
         } for row in result
     ]
+
+    # 세션 state 저장: 이후 재실행·신뢰성 시뮬레이션에서 이 값을 재사용해 사용자에게 재확인하지 않음
+    tool_context.state[top_candidates_key(lot_id)] = make_json_serializable(filtered_result)
+    tool_context.state[targets_key(lot_id)] = {
+        "target_electrode_c_avg": target_electrode_c_avg,
+        "target_grinding_l_avg": target_grinding_l_avg,
+        "target_grinding_w_avg": target_grinding_w_avg,
+        "target_grinding_t_avg": target_grinding_t_avg,
+        "target_dc_cap": target_dc_cap,
+    }
+    tool_context.state[params_key(lot_id)] = {
+        "active_layer": active_layer,
+        "ldn_avr_value": ldn_avr_value,
+        "cast_dsgn_thk": cast_dsgn_thk,
+        "screen_chip_size_leng": screen_chip_size_leng,
+        "screen_mrgn_leng": screen_mrgn_leng,
+        "screen_chip_size_widh": screen_chip_size_widh,
+        "screen_mrgn_widh": screen_mrgn_widh,
+        "cover_sheet_thk": cover_sheet_thk,
+        "total_cover_layer_num": total_cover_layer_num,
+        "gap_sheet_thk": gap_sheet_thk,
+    }
 
     return {
         "status": "success",
