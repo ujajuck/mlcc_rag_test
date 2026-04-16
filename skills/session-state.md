@@ -13,8 +13,8 @@
 | 필드 | 상태 키 | 타입 | 기록 스킬 |
 |------|---------|------|----------|
 | `chip_prod_id_list` | `mlcc_design.session.chip_prod_id_list` | `List[str]` | mlcc-rag-spec-selector |
-| `active_lot_id` | `mlcc_design.session.active_lot_id` | `str` | mlcc-lot-validation |
-| `active_chip_prod_id` | `mlcc_design.session.active_chip_prod_id` | `str` | mlcc-lot-validation |
+| `active_lot_id` | `mlcc_design.session.active_lot_id` | `str` | mlcc-optimal-design-doe |
+| `active_chip_prod_id` | `mlcc_design.session.active_chip_prod_id` | `str` | mlcc-optimal-design-doe |
 
 ---
 
@@ -54,7 +54,7 @@
 
 | 필드 | 상태 키 | 타입 | 기록 스킬 |
 |------|---------|------|----------|
-| halt_conditions | `mlcc_design.halt_conditions` | `{halt_voltage: float, halt_temperature: float}` | mlcc-optimal-design-doe / mlcc-convergence-search |
+| halt_conditions | `mlcc_design.halt_conditions` | `{halt_voltage: float, halt_temperature: float}` | mlcc-optimal-design-doe |
 
 > lot_id가 변경되어도 이 값은 유지된다. 세션 중 한 번만 사용자에게 확인하면 된다.
 
@@ -64,7 +64,7 @@
 
 | 필드 | 상태 키 | 타입 | 기록 스킬 |
 |------|---------|------|----------|
-| final_design | `mlcc_design.final_design.{lot_id}` | `dict` | mlcc-optimal-design-doe / mlcc-convergence-search |
+| final_design | `mlcc_design.final_design.{lot_id}` | `dict` | mlcc-optimal-design-doe |
 
 `mlcc_design.final_design.{lot_id}` 필드: `chip_prod_id`, `lot_id`, `active_layer`, `cast_dsgn_thk`, `electrode_c_avg`, `ldn_avr_value`, `screen_chip_size_leng`, `screen_chip_size_widh`, `screen_mrgn_leng`, `screen_mrgn_widh`, `cover_sheet_thk`
 
@@ -86,10 +86,10 @@
 
 ```
 1. mlcc_design.session.active_lot_id 있는가?
-   └─ 없음 → mlcc-lot-validation 실행 필요
+   └─ 없음 → mlcc-optimal-design-doe에서 REF LOT 선정/검증 진행
 
 2. mlcc_design.validation.{lot_id}.fully_satisfied_versions 비어있지 않은가?
-   └─ 비어있음 → mlcc-lot-validation 실행 필요 (부족인자 보충 또는 다른 lot)
+   └─ 비어있음 → 부족인자 보충(update_lot_reference) 또는 다른 lot 교체 필요
 
 3. mlcc_design.targets.{lot_id} 있는가?
    └─ 없음 → 사용자에게 targets 5개 수집 (빠진 것만)

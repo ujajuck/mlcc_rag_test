@@ -33,8 +33,8 @@ def session_key(field: str) -> str:
 
     field 예시:
       'chip_prod_id_list'   — 인접기종 chip_prod_id 목록 (mlcc-rag-spec-selector 출력)
-      'active_lot_id'       — 현재 세션 활성 lot_id (mlcc-lot-validation 출력)
-      'active_chip_prod_id' — active_lot_id의 chip_prod_id (mlcc-lot-validation 출력)
+      'active_lot_id'       — 현재 세션 활성 lot_id (get_first_lot_detail 저장)
+      'active_chip_prod_id' — active_lot_id의 chip_prod_id (get_first_lot_detail 저장)
     """
     return f"{_NS}.session.{field}"
 

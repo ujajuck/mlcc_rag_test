@@ -1,15 +1,60 @@
 # Tool Contracts — 최적설계 / 신뢰성 시뮬레이션
 
-이 reference는 mlcc-optimal-design-doe 스킬이 의존하는 3개 tool의 계약을 설명한다.
-
-LOT 선정 및 검증 도구(find_ref_lot_candidate, get_first_lot_detail, check_optimal_design, update_lot_reference)는 `mlcc-lot-validation` 스킬의 `references/tool-contracts.md`를 참고한다.
+이 reference는 mlcc-optimal-design-doe 스킬이 의존하는 모든 tool의 계약을 설명한다.
 
 ## Contents
 
+- find_ref_lot_candidate
+- get_first_lot_detail / check_optimal_design / update_lot_reference
 - optimal_design
 - reliability_simulation
 - search_rag (공정검사표준 검증용)
 - 공통 해석 규칙
+
+---
+
+## find_ref_lot_candidate
+
+목적: chip_prod_id 목록에서 품질 기준에 맞는 REF LOT 후보를 반환한다.
+
+입력:
+
+- `chip_prod_id_list`: List[str] — 인접기종 chip_prod_id 목록 (필수)
+- `cutting_grade_filter`: List[str] — 절단 등급 필터. 예: `['S 등급', 'A 등급', 'B 등급']` (기본값)
+- `measure_grade_filter`: List[str] — 측정 등급 필터 (기본값 동일)
+- `require_reliability_pass`: bool — 신뢰성 통과 필수 여부 (기본값 True)
+- `screen_code_filter`: List[str] — 스크린 코드 필터 (선택)
+
+출력:
+
+- 상위 LOT 목록. 각 항목: `lot_id`, `chip_prod_id`, 11개 품질지표.
+
+사용 규칙:
+
+- 결과가 0건이면 등급 필터 완화(S→S,A,B) 또는 `require_reliability_pass=False`로 재시도한다.
+- 파라미터 매핑 상세는 `references/pattern-ref-lot-selection.md`에 있다.
+
+---
+
+## get_first_lot_detail / check_optimal_design / update_lot_reference
+
+**get_first_lot_detail**
+
+- 입력: `lot_id` (string) — **chip_prod_id를 넣으면 에러**.
+- 출력: ref lot 설계정보를 state(`mlcc_design.lot.{lot_id}`)에 저장.
+- 규칙: check_optimal_design 이전에 반드시 실행해야 한다.
+
+**check_optimal_design**
+
+- 입력: `lot_id` (string) — get_first_lot_detail 선행 필수.
+- 출력: `fully_satisfied_versions` (List[str]), `충족인자` (dict), `부족인자` (dict).
+- 규칙: `fully_satisfied_versions`가 하나라도 있으면 시뮬레이션 진행 가능.
+
+**update_lot_reference**
+
+- 입력: `lot_id` (string), `factors` (dict) — 부족인자명: 값 쌍.
+- 출력: 반영 후 남은 부족인자 목록.
+- 규칙: check_optimal_design 이후에만 호출. 일부만 채워도 된다.
 
 ---
 
