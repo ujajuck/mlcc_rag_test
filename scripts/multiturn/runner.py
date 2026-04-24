@@ -169,7 +169,11 @@ async def run_case(
         updated_session = await session_service.get_session(
             app_name=app_name, user_id=user_id, session_id=session_id
         )
-        state_snapshot = dict(updated_session.state) if updated_session else {}
+        state_snapshot = {
+            k: v
+            for k, v in (updated_session.state or {}).items()
+            if k != "eval_index"
+        } if updated_session else {}
         turn.state_snapshot = state_snapshot
         turn.state_delta = compute_dict_delta(prev_state, state_snapshot)
         prev_state = state_snapshot

@@ -98,11 +98,12 @@ class CaseAgg:
         ]
 
     @property
-    def final_state(self) -> dict[str, Any]:
+    def final_state_keys(self) -> list[str]:
         rows = self.sorted_rows()
         if not rows:
-            return {}
-        return _parse_json(rows[-1].get("state_keys"), {})
+            return []
+        val = _parse_json(rows[-1].get("state_keys"), [])
+        return sorted(val) if isinstance(val, list) else sorted(val.keys()) if isinstance(val, dict) else []
 
     @property
     def first_error(self) -> str:
@@ -148,17 +149,15 @@ def _per_turn_set_diff(
     return out
 
 
-def _state_value_diff(
-    old_state: dict[str, Any], new_state: dict[str, Any]
+def _state_keys_diff(
+    old_keys: list[str], new_keys: list[str]
 ) -> dict[str, Any]:
-    added = sorted(k for k in new_state if k not in old_state)
-    removed = sorted(k for k in old_state if k not in new_state)
-    changed = sorted(
-        k
-        for k in new_state
-        if k in old_state and old_state[k] != new_state[k]
-    )
-    return {"added": added, "removed": removed, "changed": changed}
+    old_set = set(old_keys)
+    new_set = set(new_keys)
+    return {
+        "added": sorted(new_set - old_set),
+        "removed": sorted(old_set - new_set),
+    }
 
 
 def _make_case_item(old: CaseAgg, new: CaseAgg) -> dict[str, Any]:
@@ -184,7 +183,7 @@ def _make_case_item(old: CaseAgg, new: CaseAgg) -> dict[str, Any]:
         "time_delta": round(new.total_time - old.total_time, 4),
         "skills_diff": _per_turn_set_diff(old.skills_per_turn, new.skills_per_turn),
         "tools_diff": _per_turn_set_diff(old.tools_per_turn, new.tools_per_turn),
-        "final_state_diff": _state_value_diff(old.final_state, new.final_state),
+        "final_state_diff": _state_keys_diff(old.final_state_keys, new.final_state_keys),
         "old_error": old.first_error,
         "new_error": new.first_error,
     }
@@ -216,7 +215,6 @@ def summarize(
         for it in common_items
         if it["final_state_diff"]["added"]
         or it["final_state_diff"]["removed"]
-        or it["final_state_diff"]["changed"]
     ]
 
     def _case_pass(cases: dict[str, CaseAgg]) -> int:
@@ -404,8 +402,7 @@ def print_state_diff(s: dict[str, Any]) -> None:
     for it in s["state_changed"]:
         diff = it["final_state_diff"]
         print(
-            f'- {it["index"]}: added={diff["added"]} removed={diff["removed"]} '
-            f'changed={diff["changed"]}'
+            f'- {it["index"]}: added={diff["added"]} removed={diff["removed"]}'
         )
     print()
 

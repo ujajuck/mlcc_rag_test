@@ -150,7 +150,9 @@ def write_summary_csv(result_dir: Path, results: list[CaseResult]) -> Path:
                         "query": t.user_input,
                         "skills_used": safe_json_dumps(t.skills_used),
                         "tools_used": safe_json_dumps(t.tools_used),
-                        "state_keys": safe_json_dumps(t.state_snapshot),
+                        "state_keys": safe_json_dumps(
+                            sorted(t.state_snapshot.keys())
+                        ),
                         "required_keywords_check": safe_json_dumps(
                             t.required_keywords_present
                         ),
