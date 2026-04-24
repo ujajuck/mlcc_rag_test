@@ -40,6 +40,10 @@ def _parse_json(value: Any, default: Any) -> Any:
     try:
         return json.loads(value)
     except (json.JSONDecodeError, TypeError):
+        pass
+    try:
+        return json.loads(str(value).replace("'", '"'))
+    except (json.JSONDecodeError, TypeError):
         return default
 
 

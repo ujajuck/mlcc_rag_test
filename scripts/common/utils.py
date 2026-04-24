@@ -21,18 +21,29 @@ VLLM_TOKENIZE_URL = "http://ip:port/gpt-oss-120b/tokenize"
 
 
 def safe_json_loads(raw: Any, default: Any) -> Any:
-    """JSON 문자열 파싱. None/빈문자열/파싱 실패 시 default."""
+    """JSON 문자열 파싱. None/빈문자열/파싱 실패 시 default.
+
+    safe_json_dumps 가 쌍따옴표를 작은따옴표로 치환하므로,
+    파싱 실패 시 역치환 후 재시도한다.
+    """
     if raw is None or raw == "":
         return default
     try:
         return json.loads(raw)
     except (json.JSONDecodeError, TypeError):
+        pass
+    try:
+        return json.loads(str(raw).replace("'", '"'))
+    except (json.JSONDecodeError, TypeError):
         return default
 
 
 def safe_json_dumps(value: Any) -> str:
-    """CSV 에 안전하게 들어가는 JSON 직렬화."""
-    return json.dumps(value, ensure_ascii=False, default=str)
+    """CSV 에 안전하게 들어가는 JSON 직렬화.
+
+    내부 쌍따옴표를 작은따옴표로 치환해 CSV 이스케이프 중첩을 방지한다.
+    """
+    return json.dumps(value, ensure_ascii=False, default=str).replace('"', "'")
 
 
 def truncate_text(value: str, max_len: int = 800) -> str:
