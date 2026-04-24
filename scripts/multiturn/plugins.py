@@ -56,10 +56,18 @@ class MultiturnTrackingPlugin(BasePlugin):
         if self._current_turn is None:
             return None
 
-        is_skill = tool.name in self.known_skill_names
+        #is_skill = tool.name in self.known_skill_names
+        actural_name = tool.name
+        is_skill = False
+        if tool.name == "load_skill":
+            actural_name = tool_args.get("name",tool.name)
+            is_skill = True
+        elif tool.name == "load_skill_resource":
+            actural_name = tool_args.get("skill_name",tool.name)
+            is_skill = True
         self._current_turn.tool_calls.append(
             ToolCallRecord(
-                tool_name=tool.name,
+                tool_name=actural_name,
                 tool_args=dict(tool_args),
                 result_preview="__PENDING__",
                 is_skill=is_skill,
@@ -67,11 +75,11 @@ class MultiturnTrackingPlugin(BasePlugin):
         )
 
         if is_skill:
-            if tool.name not in self._current_turn.skills_used:
-                self._current_turn.skills_used.append(tool.name)
+            if actural_name not in self._current_turn.skills_used:
+                self._current_turn.skills_used.append(actural_name)
         else:
-            if tool.name not in self._current_turn.tools_used:
-                self._current_turn.tools_used.append(tool.name)
+            if actural_name not in self._current_turn.tools_used:
+                self._current_turn.tools_used.append(actural_name)
         return None
 
     async def after_tool_callback(
