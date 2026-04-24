@@ -139,7 +139,9 @@ def write_summary_csv(result_dir: Path, results: list[CaseResult]) -> Path:
     output_path = result_dir / f"mlcc_eval_{timestamp}.csv"
 
     with output_path.open("w", encoding="utf-8-sig", newline="") as fp:
-        writer = csv.DictWriter(fp, fieldnames=OUTPUT_FIELDS)
+        writer = csv.DictWriter(
+            fp, fieldnames=OUTPUT_FIELDS, quoting=csv.QUOTE_ALL
+        )
         writer.writeheader()
         for r in results:
             for t in r.turns:
@@ -150,9 +152,7 @@ def write_summary_csv(result_dir: Path, results: list[CaseResult]) -> Path:
                         "query": t.user_input,
                         "skills_used": safe_json_dumps(t.skills_used),
                         "tools_used": safe_json_dumps(t.tools_used),
-                        "state_keys": safe_json_dumps(
-                            sorted(t.state_snapshot.keys())
-                        ),
+                        "state_keys": safe_json_dumps(t.state_snapshot),
                         "required_keywords_check": safe_json_dumps(
                             t.required_keywords_present
                         ),
