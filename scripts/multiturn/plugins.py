@@ -127,7 +127,7 @@ class MultiturnTrackingPlugin(BasePlugin):
             ModelCallRecord(
                 prompt_text=prompt_text,
                 response_text="",
-                input_tokens=estimate_tokens_from_text(prompt_text),
+                input_tokens=0,
                 output_tokens=0,
             )
         )
@@ -145,5 +145,12 @@ class MultiturnTrackingPlugin(BasePlugin):
         response_text = flatten_llm_response_to_text(llm_response)
         rec = self._current_turn.model_calls[-1]
         rec.response_text = response_text
-        rec.output_tokens = estimate_tokens_from_text(response_text)
+
+        usage = getattr(llm_response, "usage_metadata", None)
+        if usage:
+            rec.input_tokens = getattr(usage, "prompt_token_count", 0) or 0
+            rec.output_tokens = getattr(usage, "candidates_token_count", 0) or 0
+        else:
+            rec.input_tokens = estimate_tokens_from_text(rec.prompt_text)
+            rec.output_tokens = estimate_tokens_from_text(response_text)
         return None
