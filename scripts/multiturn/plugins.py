@@ -2,6 +2,11 @@
 
 스킬/툴/모델 호출을 콜백으로 받아 현재 attach 된 TurnRecord 에 누적한다.
 turn 경계는 runner 가 attach_turn/detach_turn 으로 제어한다.
+
+skill 추적 전략:
+    1) load_skill / load_skill_resource 호출 시 → tools_used + skills_used 에 기록
+    2) 이후 호출되는 tool 을 해당 skill 에 매핑 (_skill_tool_map)
+    3) 다음 턴에서 load_skill 없이 tool 만 호출되면 → 매핑으로 부모 skill 자동 귀속
 """
 
 from typing import Any, Optional
@@ -20,36 +25,34 @@ from scripts.common.utils import (
 
 from .types import ModelCallRecord, ToolCallRecord, TurnRecord
 
+_SKILL_LOADERS = frozenset({"load_skill", "load_skill_resource"})
+
 
 class MultiturnTrackingPlugin(BasePlugin):
-    """단일 플러그인으로 skill / tool / model 을 모두 추적.
-
-    skill 여부는 tool.name 이 load_skill / load_skill_resource 인지로 판정한다.
-    해당 tool 의 args 에서 실제 skill 이름을 추출해 기록한다.
-    """
 
     def __init__(self) -> None:
         super().__init__(name="multiturn_tracking_plugin")
         self._current_turn: Optional[TurnRecord] = None
+        # 세션 레벨: tool_name → skill_name 매핑 (턴 간 유지)
+        self._skill_tool_map: dict[str, str] = {}
+        # 직전에 로드된 skill 이름 (이후 tool 을 이 skill 에 매핑)
+        self._last_loaded_skill: Optional[str] = None
 
     def attach_turn(self, turn: TurnRecord) -> None:
-        """현재 턴을 세팅. 이후 모든 콜백 이벤트는 이 turn 에 누적된다."""
         self._current_turn = turn
 
     def detach_turn(self) -> None:
-        """턴 경계 해제."""
         self._current_turn = None
+        self._last_loaded_skill = None
 
-    @staticmethod
-    def _resolve_name(
-        tool: BaseTool, tool_args: dict[str, Any]
-    ) -> tuple[str, bool]:
-        """tool.name + args 로부터 (실제 이름, is_skill) 을 결정."""
+    def _extract_skill_name(
+        self, tool: BaseTool, tool_args: dict[str, Any]
+    ) -> Optional[str]:
         if tool.name == "load_skill":
-            return tool_args.get("name", tool.name), True
+            return tool_args.get("name") or None
         if tool.name == "load_skill_resource":
-            return tool_args.get("skill_name", tool.name), True
-        return tool.name, False
+            return tool_args.get("skill_name") or None
+        return None
 
     async def before_tool_callback(
         self,
@@ -58,26 +61,47 @@ class MultiturnTrackingPlugin(BasePlugin):
         tool_args: dict[str, Any],
         tool_context: ToolContext,
     ) -> Optional[dict]:
-        """tool/skill 시작 시 호출 기록 append."""
         if self._current_turn is None:
             return None
 
-        actual_name, is_skill = self._resolve_name(tool, tool_args)
-        self._current_turn.tool_calls.append(
-            ToolCallRecord(
-                tool_name=actual_name,
-                tool_args=dict(tool_args),
-                result_preview="__PENDING__",
-                is_skill=is_skill,
-            )
-        )
+        if tool.name in _SKILL_LOADERS:
+            skill_name = self._extract_skill_name(tool, tool_args)
+            if skill_name:
+                self._last_loaded_skill = skill_name
+                if skill_name not in self._current_turn.skills_used:
+                    self._current_turn.skills_used.append(skill_name)
 
-        if is_skill:
-            if actual_name not in self._current_turn.skills_used:
-                self._current_turn.skills_used.append(actual_name)
+            # load_skill 자체도 tool 로 기록
+            self._current_turn.tool_calls.append(
+                ToolCallRecord(
+                    tool_name=tool.name,
+                    tool_args=dict(tool_args),
+                    result_preview="__PENDING__",
+                    is_skill=False,
+                )
+            )
+            if tool.name not in self._current_turn.tools_used:
+                self._current_turn.tools_used.append(tool.name)
         else:
-            if actual_name not in self._current_turn.tools_used:
-                self._current_turn.tools_used.append(actual_name)
+            # 새 tool 이면 직전 load_skill 의 skill 에 매핑
+            if tool.name not in self._skill_tool_map and self._last_loaded_skill:
+                self._skill_tool_map[tool.name] = self._last_loaded_skill
+
+            parent_skill = self._skill_tool_map.get(tool.name)
+
+            self._current_turn.tool_calls.append(
+                ToolCallRecord(
+                    tool_name=tool.name,
+                    tool_args=dict(tool_args),
+                    result_preview="__PENDING__",
+                    is_skill=parent_skill is not None,
+                )
+            )
+            if tool.name not in self._current_turn.tools_used:
+                self._current_turn.tools_used.append(tool.name)
+            if parent_skill and parent_skill not in self._current_turn.skills_used:
+                self._current_turn.skills_used.append(parent_skill)
+
         return None
 
     async def after_tool_callback(
@@ -88,12 +112,10 @@ class MultiturnTrackingPlugin(BasePlugin):
         tool_context: ToolContext,
         result: dict,
     ) -> Optional[dict]:
-        """tool/skill 성공 시 결과 preview 채움."""
         if self._current_turn is None:
             return None
-        actual_name, _ = self._resolve_name(tool, tool_args)
         for rec in reversed(self._current_turn.tool_calls):
-            if rec.tool_name == actual_name and rec.result_preview == "__PENDING__":
+            if rec.tool_name == tool.name and rec.result_preview == "__PENDING__":
                 rec.result_preview = truncate_text(safe_json_dumps(result))
                 break
         return None
@@ -106,17 +128,15 @@ class MultiturnTrackingPlugin(BasePlugin):
         tool_context: ToolContext,
         error: Exception,
     ) -> Optional[dict]:
-        """tool/skill 예외 시 에러 기록."""
         if self._current_turn is None:
             return None
-        actual_name, _ = self._resolve_name(tool, tool_args)
         for rec in reversed(self._current_turn.tool_calls):
-            if rec.tool_name == actual_name and rec.result_preview == "__PENDING__":
+            if rec.tool_name == tool.name and rec.result_preview == "__PENDING__":
                 rec.result_preview = ""
                 rec.error = str(error)
                 break
         if self._current_turn.error_message is None:
-            self._current_turn.error_message = f"{actual_name}: {error}"
+            self._current_turn.error_message = f"{tool.name}: {error}"
         return None
 
     async def before_model_callback(
@@ -125,7 +145,6 @@ class MultiturnTrackingPlugin(BasePlugin):
         callback_context,
         llm_request,
     ) -> Optional[Any]:
-        """LLM 호출 직전 프롬프트 텍스트/토큰 수 기록."""
         if self._current_turn is None:
             return None
         prompt_text = flatten_llm_request_to_text(llm_request)
@@ -146,7 +165,6 @@ class MultiturnTrackingPlugin(BasePlugin):
         llm_response,
         llm_request=None,
     ) -> Optional[Any]:
-        """LLM 호출 직후 응답 텍스트/토큰 수 기록."""
         if self._current_turn is None or not self._current_turn.model_calls:
             return None
         response_text = flatten_llm_response_to_text(llm_response)
