@@ -49,6 +49,19 @@ class MultiturnTrackingPlugin(BasePlugin):
             return tool_args.get("skill_name") or None
         return None
 
+    def _resolve_name(
+        self, tool: BaseTool, tool_args: dict[str, Any]
+    ) -> tuple[str, bool]:
+        """(기록할 이름, is_skill) 반환.
+
+        load_skill/load_skill_resource → (스킬 이름, True)
+        그 외 → (tool.name, False)
+        """
+        skill_name = self._extract_skill_name(tool, tool_args)
+        if skill_name:
+            return skill_name, True
+        return tool.name, False
+
     async def before_tool_callback(
         self,
         *,
@@ -59,23 +72,23 @@ class MultiturnTrackingPlugin(BasePlugin):
         if self._current_turn is None:
             return None
 
-        is_skill_loader = tool.name in _SKILL_LOADERS
-        skill_name = self._extract_skill_name(tool, tool_args) if is_skill_loader else None
+        record_name, is_skill = self._resolve_name(tool, tool_args)
 
         self._current_turn.tool_calls.append(
             ToolCallRecord(
-                tool_name=tool.name,
+                tool_name=record_name,
                 tool_args=dict(tool_args),
                 result_preview="__PENDING__",
-                is_skill=is_skill_loader,
+                is_skill=is_skill,
             )
         )
 
-        if tool.name not in self._current_turn.tools_used:
-            self._current_turn.tools_used.append(tool.name)
-
-        if skill_name and skill_name not in self._current_turn.skills_used:
-            self._current_turn.skills_used.append(skill_name)
+        if is_skill:
+            if record_name not in self._current_turn.skills_used:
+                self._current_turn.skills_used.append(record_name)
+        else:
+            if record_name not in self._current_turn.tools_used:
+                self._current_turn.tools_used.append(record_name)
 
         return None
 
@@ -89,8 +102,9 @@ class MultiturnTrackingPlugin(BasePlugin):
     ) -> Optional[dict]:
         if self._current_turn is None:
             return None
+        record_name, _ = self._resolve_name(tool, tool_args)
         for rec in reversed(self._current_turn.tool_calls):
-            if rec.tool_name == tool.name and rec.result_preview == "__PENDING__":
+            if rec.tool_name == record_name and rec.result_preview == "__PENDING__":
                 rec.result_preview = truncate_text(safe_json_dumps(result))
                 break
         return None
@@ -105,13 +119,14 @@ class MultiturnTrackingPlugin(BasePlugin):
     ) -> Optional[dict]:
         if self._current_turn is None:
             return None
+        record_name, _ = self._resolve_name(tool, tool_args)
         for rec in reversed(self._current_turn.tool_calls):
-            if rec.tool_name == tool.name and rec.result_preview == "__PENDING__":
+            if rec.tool_name == record_name and rec.result_preview == "__PENDING__":
                 rec.result_preview = ""
                 rec.error = str(error)
                 break
         if self._current_turn.error_message is None:
-            self._current_turn.error_message = f"{tool.name}: {error}"
+            self._current_turn.error_message = f"{record_name}: {error}"
         return None
 
     async def before_model_callback(
