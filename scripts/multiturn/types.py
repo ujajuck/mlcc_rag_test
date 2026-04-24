@@ -9,7 +9,7 @@ class TurnTestSpec:
     """한 턴의 테스트 스펙 (CSV 한 행).
 
     Parameters:
-        multiturn_index: 케이스 내 턴 순서 (0-based).
+        subindex: 케이스 내 턴 순서 (0-based).
         query: 유저 입력.
         expected_skills: 이번 턴에 반드시 호출돼야 하는 skill 이름 리스트.
         expected_tools: 이번 턴에 반드시 호출돼야 하는 tool 이름 리스트.
@@ -18,7 +18,7 @@ class TurnTestSpec:
         required_keywords: 이번 턴 응답에 반드시 포함돼야 하는 키워드.
     """
 
-    multiturn_index: int
+    subindex: int
     query: str
     expected_skills: list[str] = field(default_factory=list)
     expected_tools: list[str] = field(default_factory=list)
@@ -28,7 +28,7 @@ class TurnTestSpec:
 
 @dataclass
 class MultiturnTestCase:
-    """하나의 멀티턴 케이스 (여러 turn 으로 구성)."""
+    """하나의 케이스 (1 개 이상의 subindex turn 으로 구성)."""
 
     index: str
     turns: list[TurnTestSpec]
@@ -62,7 +62,7 @@ class TurnRecord:
     모든 필드는 runner 에서 채워지며 evaluator 가 pass/fail 을 기록한다.
     """
 
-    multiturn_index: int
+    subindex: int
     user_input: str
     final_response: str = ""
     skills_used: list[str] = field(default_factory=list)

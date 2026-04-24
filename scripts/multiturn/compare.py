@@ -1,10 +1,11 @@
-"""두 개의 멀티턴 평가 결과 CSV 를 비교한다.
+"""두 평가 결과 CSV 를 비교한다.
 
-scoring 대신 아래 항목을 중심으로 diff 를 뽑는다:
-    - pass 수 변화 (전체/공통)
-    - 입출력 토큰 합/평균 변화
-    - 케이스별 skill/tool 사용 차이
-    - 최종 state key/value 차이
+입력 CSV 는 scripts.multiturn.io.write_summary_csv 가 만든 per-subindex 포맷.
+subindex row 들을 index 단위로 집계한 뒤 아래 항목을 비교한다:
+    - pass 수 (서브인덱스별/케이스별, 전체/공통)
+    - 입출력 토큰 합계/평균
+    - 케이스별 skill/tool 사용 차이 (턴별 added/removed)
+    - 최종 state key/value 차이 (케이스 마지막 턴 state 기준)
     - pass flip, added/removed 케이스
 """
 
@@ -42,31 +43,104 @@ def _parse_json(value: Any, default: Any) -> Any:
         return default
 
 
-def load_csv(path: Path) -> dict[str, dict[str, str]]:
-    """index 기준 dict 로 로드."""
+class CaseAgg:
+    """한 index 에 묶이는 subindex row 들의 집계."""
+
+    def __init__(self, index: str) -> None:
+        self.index = index
+        self.rows: list[dict[str, str]] = []
+
+    def add(self, row: dict[str, str]) -> None:
+        self.rows.append(row)
+
+    def sorted_rows(self) -> list[dict[str, str]]:
+        return sorted(self.rows, key=lambda r: _parse_int(r.get("subindex")))
+
+    @property
+    def turn_count(self) -> int:
+        return len(self.rows)
+
+    @property
+    def passed(self) -> bool:
+        # 모든 subindex row 가 passed=True 여야 케이스 pass
+        return all(_parse_bool(r.get("passed")) for r in self.rows) and bool(self.rows)
+
+    @property
+    def subindex_pass(self) -> list[bool]:
+        return [_parse_bool(r.get("passed")) for r in self.sorted_rows()]
+
+    @property
+    def total_input_tokens(self) -> int:
+        return sum(_parse_int(r.get("input_tokens")) for r in self.rows)
+
+    @property
+    def total_output_tokens(self) -> int:
+        return sum(_parse_int(r.get("output_tokens")) for r in self.rows)
+
+    @property
+    def total_model_requests(self) -> int:
+        return sum(_parse_int(r.get("model_request_count")) for r in self.rows)
+
+    @property
+    def total_time(self) -> float:
+        return round(sum(_parse_float(r.get("time_taken")) for r in self.rows), 4)
+
+    @property
+    def skills_per_turn(self) -> list[list[str]]:
+        return [
+            _parse_json(r.get("skills_used"), []) for r in self.sorted_rows()
+        ]
+
+    @property
+    def tools_per_turn(self) -> list[list[str]]:
+        return [
+            _parse_json(r.get("tools_used"), []) for r in self.sorted_rows()
+        ]
+
+    @property
+    def final_state(self) -> dict[str, Any]:
+        rows = self.sorted_rows()
+        if not rows:
+            return {}
+        return _parse_json(rows[-1].get("state_keys"), {})
+
+    @property
+    def first_error(self) -> str:
+        for r in self.sorted_rows():
+            err = r.get("error_message") or ""
+            if err:
+                return err
+        return ""
+
+
+def load_csv(path: Path) -> dict[str, CaseAgg]:
+    """index 기준으로 subindex row 들을 묶어 CaseAgg dict 반환."""
+    cases: dict[str, CaseAgg] = {}
     with path.open("r", encoding="utf-8-sig", newline="") as fp:
         reader = csv.DictReader(fp)
-        return {row["index"]: row for row in reader if row.get("index")}
-
-
-def _flatten_per_turn_list(value: Any) -> list[Any]:
-    """per_turn_* 컬럼(JSON 문자열)을 list 로 변환."""
-    data = _parse_json(value, [])
-    return data if isinstance(data, list) else []
+        for row in reader:
+            idx = (row.get("index") or "").strip()
+            if not idx:
+                continue
+            if idx not in cases:
+                cases[idx] = CaseAgg(idx)
+            cases[idx].add(row)
+    return cases
 
 
 def _per_turn_set_diff(
     old_list: list[list[str]], new_list: list[list[str]]
 ) -> list[dict[str, Any]]:
-    """turn 별로 (added, removed) 집합 diff 생성."""
     length = max(len(old_list), len(new_list))
     out: list[dict[str, Any]] = []
     for i in range(length):
         old_set = set(old_list[i]) if i < len(old_list) else set()
         new_set = set(new_list[i]) if i < len(new_list) else set()
+        if old_set == new_set:
+            continue
         out.append(
             {
-                "turn_index": i,
+                "subindex": i,
                 "added": sorted(new_set - old_set),
                 "removed": sorted(old_set - new_set),
             }
@@ -87,77 +161,47 @@ def _state_value_diff(
     return {"added": added, "removed": removed, "changed": changed}
 
 
-def _make_case_item(
-    index: str, old_row: dict[str, str], new_row: dict[str, str]
-) -> dict[str, Any]:
-    """공통 케이스 하나에 대한 비교 엔트리."""
-    old_passed = _parse_bool(old_row.get("passed"))
-    new_passed = _parse_bool(new_row.get("passed"))
-
-    old_in = _parse_int(old_row.get("total_input_tokens"))
-    new_in = _parse_int(new_row.get("total_input_tokens"))
-    old_out = _parse_int(old_row.get("total_output_tokens"))
-    new_out = _parse_int(new_row.get("total_output_tokens"))
-    old_calls = _parse_int(old_row.get("total_model_requests"))
-    new_calls = _parse_int(new_row.get("total_model_requests"))
-    old_sec = _parse_float(old_row.get("total_elapsed_seconds"))
-    new_sec = _parse_float(new_row.get("total_elapsed_seconds"))
-
-    old_per_turn_passed = _flatten_per_turn_list(old_row.get("per_turn_passed"))
-    new_per_turn_passed = _flatten_per_turn_list(new_row.get("per_turn_passed"))
-
-    old_skills_per_turn = _flatten_per_turn_list(old_row.get("per_turn_skills_used"))
-    new_skills_per_turn = _flatten_per_turn_list(new_row.get("per_turn_skills_used"))
-    old_tools_per_turn = _flatten_per_turn_list(old_row.get("per_turn_tools_used"))
-    new_tools_per_turn = _flatten_per_turn_list(new_row.get("per_turn_tools_used"))
-
-    old_final_state = _parse_json(old_row.get("final_state_snapshot_json"), {})
-    new_final_state = _parse_json(new_row.get("final_state_snapshot_json"), {})
-
+def _make_case_item(old: CaseAgg, new: CaseAgg) -> dict[str, Any]:
     return {
-        "index": index,
-        "old_turn_count": _parse_int(old_row.get("turn_count")),
-        "new_turn_count": _parse_int(new_row.get("turn_count")),
-        "old_passed": old_passed,
-        "new_passed": new_passed,
-        "old_input_tokens": old_in,
-        "new_input_tokens": new_in,
-        "input_token_delta": new_in - old_in,
-        "old_output_tokens": old_out,
-        "new_output_tokens": new_out,
-        "output_token_delta": new_out - old_out,
-        "old_model_requests": old_calls,
-        "new_model_requests": new_calls,
-        "model_request_delta": new_calls - old_calls,
-        "old_elapsed_seconds": old_sec,
-        "new_elapsed_seconds": new_sec,
-        "elapsed_delta": round(new_sec - old_sec, 4),
-        "old_per_turn_passed": old_per_turn_passed,
-        "new_per_turn_passed": new_per_turn_passed,
-        "skills_per_turn_diff": _per_turn_set_diff(
-            old_skills_per_turn, new_skills_per_turn
-        ),
-        "tools_per_turn_diff": _per_turn_set_diff(
-            old_tools_per_turn, new_tools_per_turn
-        ),
-        "final_state_diff": _state_value_diff(old_final_state, new_final_state),
-        "old_error": old_row.get("error_message", ""),
-        "new_error": new_row.get("error_message", ""),
+        "index": old.index,
+        "old_turn_count": old.turn_count,
+        "new_turn_count": new.turn_count,
+        "old_passed": old.passed,
+        "new_passed": new.passed,
+        "old_subindex_pass": old.subindex_pass,
+        "new_subindex_pass": new.subindex_pass,
+        "old_input_tokens": old.total_input_tokens,
+        "new_input_tokens": new.total_input_tokens,
+        "input_token_delta": new.total_input_tokens - old.total_input_tokens,
+        "old_output_tokens": old.total_output_tokens,
+        "new_output_tokens": new.total_output_tokens,
+        "output_token_delta": new.total_output_tokens - old.total_output_tokens,
+        "old_model_requests": old.total_model_requests,
+        "new_model_requests": new.total_model_requests,
+        "model_request_delta": new.total_model_requests - old.total_model_requests,
+        "old_time": old.total_time,
+        "new_time": new.total_time,
+        "time_delta": round(new.total_time - old.total_time, 4),
+        "skills_diff": _per_turn_set_diff(old.skills_per_turn, new.skills_per_turn),
+        "tools_diff": _per_turn_set_diff(old.tools_per_turn, new.tools_per_turn),
+        "final_state_diff": _state_value_diff(old.final_state, new.final_state),
+        "old_error": old.first_error,
+        "new_error": new.first_error,
     }
 
 
 def summarize(
-    old_rows: dict[str, dict[str, str]],
-    new_rows: dict[str, dict[str, str]],
+    old_cases: dict[str, CaseAgg],
+    new_cases: dict[str, CaseAgg],
 ) -> dict[str, Any]:
-    all_ids = sorted(set(old_rows) | set(new_rows))
-    added = [new_rows[i] for i in all_ids if i not in old_rows]
-    removed = [old_rows[i] for i in all_ids if i not in new_rows]
+    all_ids = sorted(set(old_cases) | set(new_cases))
+    added = [i for i in all_ids if i not in old_cases]
+    removed = [i for i in all_ids if i not in new_cases]
 
     common_items: list[dict[str, Any]] = []
     for idx in all_ids:
-        if idx in old_rows and idx in new_rows:
-            common_items.append(_make_case_item(idx, old_rows[idx], new_rows[idx]))
+        if idx in old_cases and idx in new_cases:
+            common_items.append(_make_case_item(old_cases[idx], new_cases[idx]))
 
     regressions = [
         it for it in common_items if it["old_passed"] and not it["new_passed"]
@@ -165,21 +209,9 @@ def summarize(
     improvements = [
         it for it in common_items if not it["old_passed"] and it["new_passed"]
     ]
-    same_pass_changed_skills = [
-        it
-        for it in common_items
-        if it["old_passed"] == it["new_passed"]
-        and any(
-            d["added"] or d["removed"] for d in it["skills_per_turn_diff"]
-        )
-    ]
-    same_pass_changed_tools = [
-        it
-        for it in common_items
-        if it["old_passed"] == it["new_passed"]
-        and any(d["added"] or d["removed"] for d in it["tools_per_turn_diff"])
-    ]
-    state_diff_cases = [
+    skill_changed = [it for it in common_items if it["skills_diff"]]
+    tool_changed = [it for it in common_items if it["tools_diff"]]
+    state_changed = [
         it
         for it in common_items
         if it["final_state_diff"]["added"]
@@ -187,87 +219,98 @@ def summarize(
         or it["final_state_diff"]["changed"]
     ]
 
-    def _pass_count(rows: dict[str, dict[str, str]]) -> int:
-        return sum(1 for r in rows.values() if _parse_bool(r.get("passed")))
+    def _case_pass(cases: dict[str, CaseAgg]) -> int:
+        return sum(1 for c in cases.values() if c.passed)
+
+    def _sub_pass(cases: dict[str, CaseAgg]) -> tuple[int, int]:
+        total = sum(c.turn_count for c in cases.values())
+        passed = sum(sum(1 for p in c.subindex_pass if p) for c in cases.values())
+        return passed, total
 
     def _avg(values: list[float]) -> float:
         return round(sum(values) / len(values), 2) if values else 0.0
 
-    old_in_all = [_parse_int(r.get("total_input_tokens")) for r in old_rows.values()]
-    new_in_all = [_parse_int(r.get("total_input_tokens")) for r in new_rows.values()]
-    old_out_all = [_parse_int(r.get("total_output_tokens")) for r in old_rows.values()]
-    new_out_all = [_parse_int(r.get("total_output_tokens")) for r in new_rows.values()]
+    old_in_all = [c.total_input_tokens for c in old_cases.values()]
+    new_in_all = [c.total_input_tokens for c in new_cases.values()]
+    old_out_all = [c.total_output_tokens for c in old_cases.values()]
+    new_out_all = [c.total_output_tokens for c in new_cases.values()]
 
-    common_old_in = [it["old_input_tokens"] for it in common_items]
-    common_new_in = [it["new_input_tokens"] for it in common_items]
-    common_old_out = [it["old_output_tokens"] for it in common_items]
-    common_new_out = [it["new_output_tokens"] for it in common_items]
+    old_sub_pass, old_sub_total = _sub_pass(old_cases)
+    new_sub_pass, new_sub_total = _sub_pass(new_cases)
 
     return {
-        "total_old": len(old_rows),
-        "total_new": len(new_rows),
-        "common": len(common_items),
+        "total_old_cases": len(old_cases),
+        "total_new_cases": len(new_cases),
+        "common_cases": len(common_items),
         "added": added,
         "removed": removed,
-        "old_pass_count_all": _pass_count(old_rows),
-        "new_pass_count_all": _pass_count(new_rows),
-        "common_old_pass_count": sum(1 for it in common_items if it["old_passed"]),
-        "common_new_pass_count": sum(1 for it in common_items if it["new_passed"]),
-        "old_avg_input_tokens_all": _avg(old_in_all),
-        "new_avg_input_tokens_all": _avg(new_in_all),
-        "common_old_avg_input_tokens": _avg(common_old_in),
-        "common_new_avg_input_tokens": _avg(common_new_in),
-        "old_avg_output_tokens_all": _avg(old_out_all),
-        "new_avg_output_tokens_all": _avg(new_out_all),
-        "common_old_avg_output_tokens": _avg(common_old_out),
-        "common_new_avg_output_tokens": _avg(common_new_out),
+        "old_case_pass": _case_pass(old_cases),
+        "new_case_pass": _case_pass(new_cases),
+        "common_old_case_pass": sum(1 for it in common_items if it["old_passed"]),
+        "common_new_case_pass": sum(1 for it in common_items if it["new_passed"]),
+        "old_sub_pass": old_sub_pass,
+        "old_sub_total": old_sub_total,
+        "new_sub_pass": new_sub_pass,
+        "new_sub_total": new_sub_total,
+        "old_avg_input_tokens": _avg(old_in_all),
+        "new_avg_input_tokens": _avg(new_in_all),
+        "old_avg_output_tokens": _avg(old_out_all),
+        "new_avg_output_tokens": _avg(new_out_all),
+        "old_total_input_tokens": sum(old_in_all),
+        "new_total_input_tokens": sum(new_in_all),
+        "old_total_output_tokens": sum(old_out_all),
+        "new_total_output_tokens": sum(new_out_all),
         "regressions": regressions,
         "improvements": improvements,
-        "same_pass_changed_skills": same_pass_changed_skills,
-        "same_pass_changed_tools": same_pass_changed_tools,
-        "state_diff_cases": state_diff_cases,
+        "skill_changed": skill_changed,
+        "tool_changed": tool_changed,
+        "state_changed": state_changed,
         "common_items": common_items,
     }
 
 
-def _fmt_per_turn_set_diff(diffs: list[dict[str, Any]]) -> str:
+def _fmt_diff(diffs: list[dict[str, Any]]) -> str:
+    if not diffs:
+        return "(no change)"
     segs = []
     for d in diffs:
-        if not d["added"] and not d["removed"]:
-            continue
         parts = []
         if d["added"]:
             parts.append(f"+{d['added']}")
         if d["removed"]:
             parts.append(f"-{d['removed']}")
-        segs.append(f"t{d['turn_index']}:" + ",".join(parts))
-    return " ".join(segs) if segs else "(no change)"
+        segs.append(f"t{d['subindex']}:" + ",".join(parts))
+    return " ".join(segs)
 
 
 def print_summary(s: dict[str, Any]) -> None:
-    print("=== 멀티턴 평가 비교 요약 ===")
-    print(f"OLD 전체: {s['total_old']}  NEW 전체: {s['total_new']}  공통: {s['common']}")
-    print(f"추가: {len(s['added'])}  제거: {len(s['removed'])}")
-    print(f"PASS(전체): {s['old_pass_count_all']} -> {s['new_pass_count_all']}")
+    print("=== 평가 결과 비교 요약 ===")
     print(
-        f"PASS(공통): {s['common_old_pass_count']} -> {s['common_new_pass_count']}"
+        f"OLD cases: {s['total_old_cases']}  NEW cases: {s['total_new_cases']}  "
+        f"공통: {s['common_cases']}"
     )
-    print(f"REGRESSION: {len(s['regressions'])}  IMPROVEMENT: {len(s['improvements'])}")
+    print(f"추가 케이스: {len(s['added'])}  제거 케이스: {len(s['removed'])}")
+    print(f"케이스 PASS(전체): {s['old_case_pass']} -> {s['new_case_pass']}")
     print(
-        f"평균 입력 토큰(전체): {s['old_avg_input_tokens_all']} -> "
-        f"{s['new_avg_input_tokens_all']}"
-    )
-    print(
-        f"평균 입력 토큰(공통): {s['common_old_avg_input_tokens']} -> "
-        f"{s['common_new_avg_input_tokens']}"
+        f"케이스 PASS(공통): {s['common_old_case_pass']} -> "
+        f"{s['common_new_case_pass']}"
     )
     print(
-        f"평균 출력 토큰(전체): {s['old_avg_output_tokens_all']} -> "
-        f"{s['new_avg_output_tokens_all']}"
+        f"서브인덱스 PASS: {s['old_sub_pass']}/{s['old_sub_total']} -> "
+        f"{s['new_sub_pass']}/{s['new_sub_total']}"
     )
     print(
-        f"평균 출력 토큰(공통): {s['common_old_avg_output_tokens']} -> "
-        f"{s['common_new_avg_output_tokens']}"
+        f"REGRESSION: {len(s['regressions'])}  IMPROVEMENT: {len(s['improvements'])}"
+    )
+    print(
+        f"입력 토큰 합: {s['old_total_input_tokens']} -> "
+        f"{s['new_total_input_tokens']} "
+        f"(평균 {s['old_avg_input_tokens']} -> {s['new_avg_input_tokens']})"
+    )
+    print(
+        f"출력 토큰 합: {s['old_total_output_tokens']} -> "
+        f"{s['new_total_output_tokens']} "
+        f"(평균 {s['old_avg_output_tokens']} -> {s['new_avg_output_tokens']})"
     )
     print()
 
@@ -279,29 +322,33 @@ def print_pass_flips(s: dict[str, Any]) -> None:
         print()
         return
 
-    print("index,kind,old_passed,new_passed,in_delta,out_delta,model_call_delta,elapsed_delta")
+    print(
+        "index,kind,old_passed,new_passed,in_delta,out_delta,"
+        "model_call_delta,time_delta"
+    )
     for it in s["regressions"]:
         print(
             f'{it["index"]},regression,{it["old_passed"]},{it["new_passed"]},'
             f'{it["input_token_delta"]},{it["output_token_delta"]},'
-            f'{it["model_request_delta"]},{it["elapsed_delta"]}'
+            f'{it["model_request_delta"]},{it["time_delta"]}'
         )
     for it in s["improvements"]:
         print(
             f'{it["index"]},improvement,{it["old_passed"]},{it["new_passed"]},'
             f'{it["input_token_delta"]},{it["output_token_delta"]},'
-            f'{it["model_request_delta"]},{it["elapsed_delta"]}'
+            f'{it["model_request_delta"]},{it["time_delta"]}'
         )
     print()
 
 
 def print_token_changes(s: dict[str, Any], top_n: int = 10) -> None:
     print("=== 입력 토큰 변화 TOP ===")
-    items = sorted(s["common_items"], key=lambda x: abs(x["input_token_delta"]), reverse=True)
+    items = sorted(
+        s["common_items"], key=lambda x: abs(x["input_token_delta"]), reverse=True
+    )
     items = [it for it in items if it["input_token_delta"] != 0][:top_n]
     if not items:
         print("없음")
-        print()
     else:
         print("index,old_in,new_in,in_delta,old_out,new_out,out_delta")
         for it in items:
@@ -310,14 +357,15 @@ def print_token_changes(s: dict[str, Any], top_n: int = 10) -> None:
                 f'{it["input_token_delta"]},{it["old_output_tokens"]},'
                 f'{it["new_output_tokens"]},{it["output_token_delta"]}'
             )
-        print()
+    print()
 
     print("=== 출력 토큰 변화 TOP ===")
-    items = sorted(s["common_items"], key=lambda x: abs(x["output_token_delta"]), reverse=True)
+    items = sorted(
+        s["common_items"], key=lambda x: abs(x["output_token_delta"]), reverse=True
+    )
     items = [it for it in items if it["output_token_delta"] != 0][:top_n]
     if not items:
         print("없음")
-        print()
     else:
         print("index,old_out,new_out,out_delta,old_in,new_in,in_delta")
         for it in items:
@@ -326,55 +374,34 @@ def print_token_changes(s: dict[str, Any], top_n: int = 10) -> None:
                 f'{it["output_token_delta"]},{it["old_input_tokens"]},'
                 f'{it["new_input_tokens"]},{it["input_token_delta"]}'
             )
-        print()
+    print()
 
 
 def print_skill_tool_diff(s: dict[str, Any]) -> None:
     print("=== Skill 사용 변화 케이스 ===")
-    cases = s["same_pass_changed_skills"] + s["regressions"] + s["improvements"]
-    seen: set[str] = set()
-    uniq = []
-    for it in cases:
-        if it["index"] in seen:
-            continue
-        seen.add(it["index"])
-        if any(d["added"] or d["removed"] for d in it["skills_per_turn_diff"]):
-            uniq.append(it)
-    if not uniq:
+    if not s["skill_changed"]:
         print("없음")
     else:
-        for it in uniq:
-            print(
-                f'- {it["index"]}: {_fmt_per_turn_set_diff(it["skills_per_turn_diff"])}'
-            )
+        for it in s["skill_changed"]:
+            print(f'- {it["index"]}: {_fmt_diff(it["skills_diff"])}')
     print()
 
     print("=== Tool 사용 변화 케이스 ===")
-    seen.clear()
-    uniq = []
-    for it in s["same_pass_changed_tools"] + s["regressions"] + s["improvements"]:
-        if it["index"] in seen:
-            continue
-        seen.add(it["index"])
-        if any(d["added"] or d["removed"] for d in it["tools_per_turn_diff"]):
-            uniq.append(it)
-    if not uniq:
+    if not s["tool_changed"]:
         print("없음")
     else:
-        for it in uniq:
-            print(
-                f'- {it["index"]}: {_fmt_per_turn_set_diff(it["tools_per_turn_diff"])}'
-            )
+        for it in s["tool_changed"]:
+            print(f'- {it["index"]}: {_fmt_diff(it["tools_diff"])}')
     print()
 
 
 def print_state_diff(s: dict[str, Any]) -> None:
     print("=== 최종 State 차이 케이스 ===")
-    if not s["state_diff_cases"]:
+    if not s["state_changed"]:
         print("없음")
         print()
         return
-    for it in s["state_diff_cases"]:
+    for it in s["state_changed"]:
         diff = it["final_state_diff"]
         print(
             f'- {it["index"]}: added={diff["added"]} removed={diff["removed"]} '
@@ -388,23 +415,23 @@ def print_added_removed(s: dict[str, Any]) -> None:
     if not s["added"]:
         print("없음")
     else:
-        for r in s["added"]:
-            print(f'- {r.get("index", "")}')
+        for idx in s["added"]:
+            print(f"- {idx}")
     print()
 
     print("=== 제거된 케이스 ===")
     if not s["removed"]:
         print("없음")
     else:
-        for r in s["removed"]:
-            print(f'- {r.get("index", "")}')
+        for idx in s["removed"]:
+            print(f"- {idx}")
     print()
 
 
 def main(old_path: str, new_path: str) -> None:
-    old_rows = load_csv(Path(old_path))
-    new_rows = load_csv(Path(new_path))
-    summary = summarize(old_rows, new_rows)
+    old_cases = load_csv(Path(old_path))
+    new_cases = load_csv(Path(new_path))
+    summary = summarize(old_cases, new_cases)
     print_summary(summary)
     print_pass_flips(summary)
     print_token_changes(summary)

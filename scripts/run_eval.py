@@ -1,7 +1,12 @@
-"""멀티턴 평가 실행 엔트리.
+"""단일/멀티턴 통합 평가 엔트리.
 
-CSV (tests/test_cases_mlcc_multiturn_v2.csv) 를 읽어 각 케이스를 한 세션에서
-턴 순서대로 실행하고, 요약 CSV + 케이스별 상세 JSON 을 저장한다.
+tests/test_cases_mlcc.csv 를 index 기준으로 그룹핑해 각 케이스를 한 ADK
+세션에서 subindex 순서로 실행한다. subindex 가 하나인 케이스는 단일턴,
+여러 개면 멀티턴 이다.
+
+실행 결과:
+    - artifacts/eval_results/mlcc_eval_<timestamp>.csv (subindex 당 한 행)
+    - artifacts/eval_results/details/<index>.json (index 당 한 파일)
 """
 
 import asyncio
@@ -13,14 +18,14 @@ from scripts.multiturn.io import load_test_cases, write_summary_csv
 from scripts.multiturn.runner import run_case
 
 
-APP_NAME = "mlcc_multiturn_eval"
+APP_NAME = "mlcc_eval"
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-TEST_CASE_PATH = PROJECT_ROOT / "tests" / "test_cases_mlcc_multiturn_v2.csv"
-RESULT_DIR = PROJECT_ROOT / "artifacts" / "multiturn_eval"
+TEST_CASE_PATH = PROJECT_ROOT / "tests" / "test_cases_mlcc.csv"
+RESULT_DIR = PROJECT_ROOT / "artifacts" / "eval_results"
 DETAILS_DIR = RESULT_DIR / "details"
 
-# ADK SkillToolset 에 실려 tool 로 노출되는 skill 이름.
-# 필요 시 추가/수정. 여기 나열된 이름은 plugin 에서 'skill 호출' 로 분류된다.
+# ADK SkillToolset 이 tool 인터페이스로 노출하는 skill 이름.
+# 여기 나열된 이름은 plugin 에서 'skill 호출' 로 분류된다.
 KNOWN_SKILLS: set[str] = {
     "mlcc-rag-spec-selector",
     "mlcc-optimal-design-doe",

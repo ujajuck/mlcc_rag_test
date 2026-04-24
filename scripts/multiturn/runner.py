@@ -147,7 +147,7 @@ async def run_case(
 
     for spec in test_case.turns:
         turn = TurnRecord(
-            multiturn_index=spec.multiturn_index,
+            subindex=spec.subindex,
             user_input=spec.query,
         )
         plugin.attach_turn(turn)
