@@ -24,14 +24,6 @@ TEST_CASE_PATH = PROJECT_ROOT / "tests" / "test_cases_mlcc.csv"
 RESULT_DIR = PROJECT_ROOT / "artifacts" / "eval_results"
 DETAILS_DIR = RESULT_DIR / "details"
 
-# ADK SkillToolset 이 tool 인터페이스로 노출하는 skill 이름.
-# 여기 나열된 이름은 plugin 에서 'skill 호출' 로 분류된다.
-KNOWN_SKILLS: set[str] = {
-    "mlcc-rag-spec-selector",
-    "mlcc-optimal-design-doe",
-    "mlcc-design-dispatch",
-}
-
 
 async def main() -> None:
     DETAILS_DIR.mkdir(parents=True, exist_ok=True)
@@ -47,7 +39,6 @@ async def main() -> None:
             root_agent=root_agent,
             app_name=APP_NAME,
             details_dir=DETAILS_DIR,
-            known_skill_names=KNOWN_SKILLS,
         )
         results.append(result)
         per_turn_pass = [t.passed for t in result.turns]

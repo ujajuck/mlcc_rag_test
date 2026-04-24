@@ -24,17 +24,12 @@ from .types import ModelCallRecord, ToolCallRecord, TurnRecord
 class MultiturnTrackingPlugin(BasePlugin):
     """단일 플러그인으로 skill / tool / model 을 모두 추적.
 
-    skill 여부는 tool.name 이 known_skill_names 에 포함되는지로 판정한다.
-    ADK SkillToolset 은 skill 을 tool 인터페이스로 노출하므로 tool 콜백에서
-    같이 잡힌다.
-
-    Parameters:
-        known_skill_names: skill 로 분류할 tool 이름 집합.
+    skill 여부는 tool.name 이 load_skill / load_skill_resource 인지로 판정한다.
+    해당 tool 의 args 에서 실제 skill 이름을 추출해 기록한다.
     """
 
-    def __init__(self, known_skill_names: Optional[set[str]] = None) -> None:
+    def __init__(self) -> None:
         super().__init__(name="multiturn_tracking_plugin")
-        self.known_skill_names: set[str] = set(known_skill_names or [])
         self._current_turn: Optional[TurnRecord] = None
 
     def attach_turn(self, turn: TurnRecord) -> None:
@@ -44,6 +39,17 @@ class MultiturnTrackingPlugin(BasePlugin):
     def detach_turn(self) -> None:
         """턴 경계 해제."""
         self._current_turn = None
+
+    @staticmethod
+    def _resolve_name(
+        tool: BaseTool, tool_args: dict[str, Any]
+    ) -> tuple[str, bool]:
+        """tool.name + args 로부터 (실제 이름, is_skill) 을 결정."""
+        if tool.name == "load_skill":
+            return tool_args.get("name", tool.name), True
+        if tool.name == "load_skill_resource":
+            return tool_args.get("skill_name", tool.name), True
+        return tool.name, False
 
     async def before_tool_callback(
         self,
@@ -56,18 +62,10 @@ class MultiturnTrackingPlugin(BasePlugin):
         if self._current_turn is None:
             return None
 
-        #is_skill = tool.name in self.known_skill_names
-        actural_name = tool.name
-        is_skill = False
-        if tool.name == "load_skill":
-            actural_name = tool_args.get("name",tool.name)
-            is_skill = True
-        elif tool.name == "load_skill_resource":
-            actural_name = tool_args.get("skill_name",tool.name)
-            is_skill = True
+        actual_name, is_skill = self._resolve_name(tool, tool_args)
         self._current_turn.tool_calls.append(
             ToolCallRecord(
-                tool_name=actural_name,
+                tool_name=actual_name,
                 tool_args=dict(tool_args),
                 result_preview="__PENDING__",
                 is_skill=is_skill,
@@ -75,11 +73,11 @@ class MultiturnTrackingPlugin(BasePlugin):
         )
 
         if is_skill:
-            if actural_name not in self._current_turn.skills_used:
-                self._current_turn.skills_used.append(actural_name)
+            if actual_name not in self._current_turn.skills_used:
+                self._current_turn.skills_used.append(actual_name)
         else:
-            if actural_name not in self._current_turn.tools_used:
-                self._current_turn.tools_used.append(actural_name)
+            if actual_name not in self._current_turn.tools_used:
+                self._current_turn.tools_used.append(actual_name)
         return None
 
     async def after_tool_callback(
@@ -93,8 +91,9 @@ class MultiturnTrackingPlugin(BasePlugin):
         """tool/skill 성공 시 결과 preview 채움."""
         if self._current_turn is None:
             return None
+        actual_name, _ = self._resolve_name(tool, tool_args)
         for rec in reversed(self._current_turn.tool_calls):
-            if rec.tool_name == tool.name and rec.result_preview == "__PENDING__":
+            if rec.tool_name == actual_name and rec.result_preview == "__PENDING__":
                 rec.result_preview = truncate_text(safe_json_dumps(result))
                 break
         return None
@@ -110,13 +109,14 @@ class MultiturnTrackingPlugin(BasePlugin):
         """tool/skill 예외 시 에러 기록."""
         if self._current_turn is None:
             return None
+        actual_name, _ = self._resolve_name(tool, tool_args)
         for rec in reversed(self._current_turn.tool_calls):
-            if rec.tool_name == tool.name and rec.result_preview == "__PENDING__":
+            if rec.tool_name == actual_name and rec.result_preview == "__PENDING__":
                 rec.result_preview = ""
                 rec.error = str(error)
                 break
         if self._current_turn.error_message is None:
-            self._current_turn.error_message = f"{tool.name}: {error}"
+            self._current_turn.error_message = f"{actual_name}: {error}"
         return None
 
     async def before_model_callback(

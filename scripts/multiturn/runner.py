@@ -114,11 +114,10 @@ async def run_case(
     root_agent: Any,
     app_name: str,
     details_dir: Path,
-    known_skill_names: set[str],
 ) -> CaseResult:
     """한 멀티턴 케이스를 실행해 CaseResult 를 반환한다."""
     session_service = InMemorySessionService()
-    plugin = MultiturnTrackingPlugin(known_skill_names=known_skill_names)
+    plugin = MultiturnTrackingPlugin()
     artifact_service = _build_artifact_service()
 
     runner_kwargs: dict[str, Any] = dict(
