@@ -99,9 +99,6 @@ def save_case_details_json(
                 "model_request_count": t.model_request_count,
                 "time_taken": t.elapsed_seconds,
                 "error_message": t.error_message,
-                "required_keywords_check": t.required_keywords_present,
-                "passed": t.passed,
-                "fail_reasons": t.fail_reasons,
             }
             for t in turns
         ],
