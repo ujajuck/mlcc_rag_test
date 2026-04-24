@@ -3,10 +3,9 @@
 스킬/툴/모델 호출을 콜백으로 받아 현재 attach 된 TurnRecord 에 누적한다.
 turn 경계는 runner 가 attach_turn/detach_turn 으로 제어한다.
 
-skill 추적 전략:
-    1) load_skill / load_skill_resource 호출 시 → tools_used + skills_used 에 기록
-    2) 이후 호출되는 tool 을 해당 skill 에 매핑 (_skill_tool_map)
-    3) 다음 턴에서 load_skill 없이 tool 만 호출되면 → 매핑으로 부모 skill 자동 귀속
+skill 추적:
+    load_skill / load_skill_resource 호출 시 → tools_used + skills_used 에 기록.
+    그 외 tool 은 tools_used 에만 기록.
 """
 
 from typing import Any, Optional
@@ -33,20 +32,16 @@ class MultiturnTrackingPlugin(BasePlugin):
     def __init__(self) -> None:
         super().__init__(name="multiturn_tracking_plugin")
         self._current_turn: Optional[TurnRecord] = None
-        # 세션 레벨: tool_name → skill_name 매핑 (턴 간 유지)
-        self._skill_tool_map: dict[str, str] = {}
-        # 직전에 로드된 skill 이름 (이후 tool 을 이 skill 에 매핑)
-        self._last_loaded_skill: Optional[str] = None
 
     def attach_turn(self, turn: TurnRecord) -> None:
         self._current_turn = turn
 
     def detach_turn(self) -> None:
         self._current_turn = None
-        self._last_loaded_skill = None
 
+    @staticmethod
     def _extract_skill_name(
-        self, tool: BaseTool, tool_args: dict[str, Any]
+        tool: BaseTool, tool_args: dict[str, Any]
     ) -> Optional[str]:
         if tool.name == "load_skill":
             return tool_args.get("name") or None
@@ -64,43 +59,23 @@ class MultiturnTrackingPlugin(BasePlugin):
         if self._current_turn is None:
             return None
 
-        if tool.name in _SKILL_LOADERS:
-            skill_name = self._extract_skill_name(tool, tool_args)
-            if skill_name:
-                self._last_loaded_skill = skill_name
-                if skill_name not in self._current_turn.skills_used:
-                    self._current_turn.skills_used.append(skill_name)
+        is_skill_loader = tool.name in _SKILL_LOADERS
+        skill_name = self._extract_skill_name(tool, tool_args) if is_skill_loader else None
 
-            # load_skill 자체도 tool 로 기록
-            self._current_turn.tool_calls.append(
-                ToolCallRecord(
-                    tool_name=tool.name,
-                    tool_args=dict(tool_args),
-                    result_preview="__PENDING__",
-                    is_skill=False,
-                )
+        self._current_turn.tool_calls.append(
+            ToolCallRecord(
+                tool_name=tool.name,
+                tool_args=dict(tool_args),
+                result_preview="__PENDING__",
+                is_skill=is_skill_loader,
             )
-            if tool.name not in self._current_turn.tools_used:
-                self._current_turn.tools_used.append(tool.name)
-        else:
-            # 새 tool 이면 직전 load_skill 의 skill 에 매핑
-            if tool.name not in self._skill_tool_map and self._last_loaded_skill:
-                self._skill_tool_map[tool.name] = self._last_loaded_skill
+        )
 
-            parent_skill = self._skill_tool_map.get(tool.name)
+        if tool.name not in self._current_turn.tools_used:
+            self._current_turn.tools_used.append(tool.name)
 
-            self._current_turn.tool_calls.append(
-                ToolCallRecord(
-                    tool_name=tool.name,
-                    tool_args=dict(tool_args),
-                    result_preview="__PENDING__",
-                    is_skill=parent_skill is not None,
-                )
-            )
-            if tool.name not in self._current_turn.tools_used:
-                self._current_turn.tools_used.append(tool.name)
-            if parent_skill and parent_skill not in self._current_turn.skills_used:
-                self._current_turn.skills_used.append(parent_skill)
+        if skill_name and skill_name not in self._current_turn.skills_used:
+            self._current_turn.skills_used.append(skill_name)
 
         return None
 
